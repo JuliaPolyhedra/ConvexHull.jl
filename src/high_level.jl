@@ -39,3 +39,31 @@ function write_ine(str::String, A::Matrix{Float64}, b::Vector{Float64})
     close(fp)
     nothing
 end
+
+function read_ext(fname::String)
+    fp = open(fname, "r")
+    vertices = Vector[]
+    rays = Vector[]
+
+    while true
+        line = strip(readline(fp), '\n')
+        line == "begin" && break
+    end
+    line = strip(readline(fp), '\n')
+    (m,n,typ) = filter(x->!isempty(x), split(line, " "))
+    line = strip(readline(fp), '\n')
+    while line != "end"
+        res  = filter(x->!isempty(x), split(line, " "))
+        println("res = $res")
+        nums = map(float, res)
+        elem = try convert(Vector{Int}, nums) catch nums end
+        if elem[1] == 1 # vertex
+            push!(vertices, elem[2:end])
+        else
+            push!(rays, elem[2:end])
+        end
+        line = strip(readline(fp), '\n')
+    end
+    close(fp)
+    return vertices, rays
+end
