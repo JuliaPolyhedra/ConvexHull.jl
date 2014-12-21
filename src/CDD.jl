@@ -14,5 +14,6 @@ export homogeneous_system, write_ine, read_ext
 
 include("high_level.jl")
 include("jump_interface.jl")
+include("double_description.jl")
 
 end
