@@ -1,6 +1,3 @@
-abstract Algorithm
-type Standard <: Algorithm end
-
 type DoubleDescription{T<:Real}
     A::Matrix{T}
     R::Vector{Vector{T}}
@@ -13,7 +10,7 @@ function DoubleDescription{T<:Real}(A::Matrix{T},R::Vector{Vector{T}},K::Set{Int
     d = rank(A)
     for i in 1:m
         for j in 1:(i-1)
-            adj[i][j] == check_adjacency(A, R[i], R[j], d)
+            adj[i][j] = check_adjacency(A, R[i], R[j], d)
         end
     end
     return DoubleDescription(A,R,K,adj)
@@ -21,61 +18,65 @@ end
 
 function initial_description{T<:Real}(A::Matrix{T})
     m,n = size(A)
-    B = rref(A)
+    B = rref(A')
     # find pivots
     r = 1
     K = Set{Int}()
-    for i in 1:n
-        comp = zeros(m)
+    for i in 1:m
+        comp = zeros(n)
         comp[r] = 1
         if B[:,i] == comp
             r += 1
             push!(K, i)
         end
-        r == m && break
+        r > n && break
     end
-    Aₖ = A[:,collect(K)]
-    R = Aₖ \ eye(m,m)
-    Rₖ = Vector{T}[R[:,i] for i in 1:m]
-    return DoubleDescription(Aₖ,Rₖ,K)
+    Aₖ = A[collect(K),:]
+    R = Aₖ \ eye(n,n)
+    Rₖ = Vector{T}[R[:,i] for i in 1:n]
+    return DoubleDescription(A,Rₖ,K)
 end
 
-function double_description{T<:Real}(A::Matrix{T}, alg::Algorithm)
+function double_description{T<:Real}(A::Matrix{T})
     m, n = size(A)
     dd = initial_description(A)
-    Kᶜ = setdiff(dd.K,1:m)
+    Kᶜ = setdiff(1:m, dd.K)
     while !isempty(Kᶜ)
         i = pop!(Kᶜ)
-        update!(dd, i, alg)
+        Aᵢ = reshape(A[i,:], (n,))
+        update!(dd, Aᵢ)
+        push!(dd.K, i)
     end
     return dd
 end
 
 # use Lemma 8 from Fukuda (1996) to update the double description
-function update!(dd::DoubleDescription, i::Int, ::Standard)
-    Aᵢ = A[i,:]
-    for (j,k) in combinations(1:length(dd.R))
+function update!(dd::DoubleDescription, Aᵢ)
+    for (j,k) in combinations(1:length(dd.R), 2)
         if isadjacent(dd,j,k)
             rⱼ, rₖ = dd.R[j], dd.R[k]
-            rⱼₖ = dot(Aᵢ,rⱼ)*rₖ - dot(Aᵢ,rₖ)*rⱼ
-            rₖⱼ = dot(Aᵢ,rₖ)*rⱼ - dot(Aᵢ,rⱼ)*rₖ
-            addray!(dd, rⱼₖ)
-            addray!(dd, rₖⱼ)
+            tⱼ,tₖ = dot(Aᵢ,rⱼ), dot(Aᵢ,rₖ)
+            if tⱼ > 0 && tₖ < 0
+                addray!(dd, tⱼ*rₖ - tₖ*rⱼ)
+            elseif tⱼ < 0 && tₖ > 0
+                addray!(dd, tₖ*rⱼ - tⱼ*rₖ)
+            end
         end
     end
     nothing
 end
 
-isadjacent(dd::DoubleDescription, j, k) = dd.adj[minimum(j,k)][maximum(j,k)]
+isadjacent(dd::DoubleDescription, j, k) = dd.adj[max(j,k)][min(j,k)]
 
 function addray!(dd::DoubleDescription, r)
     m = length(dd.R)
     d = rank(dd.A)
     new_adj = Array(Bool, m)
     for i in 1:m
-        new_adj[i] = check_adjacency(A, r, dd.R[i], d)
+        new_adj[i] = check_adjacency(dd.A, r, dd.R[i], d)
     end
     push!(dd.adj, new_adj)
+    push!(dd.R, r)
 end
 
 function check_adjacency(A, r, s, d)
