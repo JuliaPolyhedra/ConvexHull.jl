@@ -1,19 +1,14 @@
 module CDD
 
-#macro dd_ccall(func, args...)
-#    f = "dd_$func"
-#    quote
-#        ccall(($f,libcdd), $(args...))
-#    end
-#end
-#
-#set_global_constants() = @dd_ccall(set_global_constants, ())
-#set_global_constants()
+using JuMP
 
-export homogeneous_system, write_ine, read_ext, double_description, canonicalize!
+export homogeneous_system, write_ine, read_ext, double_description, canonicalize!, extrema,
+       is_approx_included
 
-include("high_level.jl")
-include("jump_interface.jl")
+const ε = 10eps()
+
 include("double_description.jl")
+include("JuMP_interface.jl")
+include("readers_writers.jl")
 
 end

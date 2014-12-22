@@ -19,7 +19,7 @@ function initial_description{T<:Real}(A::Matrix{T})
         end
         r > n && break
     end
-    Aₖ = A[sort(collect(K)),:]
+    Aₖ = A[collect(K),:]
     R = Aₖ \ eye(n,n)
     Rₖ = Vector{T}[R[:,i] for i in 1:n]
     return DoubleDescription(A,Rₖ,K)
@@ -42,6 +42,28 @@ function double_description{T<:Real}(A::Matrix{T})
     return dd
 end
 
+function is_approx_included(haystack, needle)
+    n = length(needle)
+    diff = zeros(n)
+    for h in haystack
+        diff = norm(h-needle)
+        diff < n*ε && return true
+    end
+    return false
+end
+
+function canonicalize!(v)
+    n = length(v)
+    val = abs(v[1])
+    if val < ε
+        val = minimum(findfirst(v .> ε))
+    end
+    for i in 1:n
+        v[i] = v[i] / val
+    end
+    nothing
+end
+
 # use Lemma 8 from Fukuda (1996) to update the double description
 function update!{T<:Real}(dd::DoubleDescription{T}, i)
     m, n = size(dd.A)
@@ -51,20 +73,16 @@ function update!{T<:Real}(dd::DoubleDescription{T}, i)
     for r in R⁺, s in R⁻
         if isadjacent(dd,r,s)
             v = dot(Aᵢ,r)*s - dot(Aᵢ,s)*r
-            if sum(abs(v)) > 10n*eps()
+            canonicalize!(v)
+            if sum(abs(v)) > n*ε && !is_approx_included(R⁰, v) && !is_approx_included(Rⁿᵉʷ, v)
                 push!(Rⁿᵉʷ, v)
-            else
-                error("Somehow we added a zero vector?")
+            # else
+                # error("Somehow we added a zero vector?")
             end
         end
     end
-    # println("Rⁿᵉʷ = $(Rⁿᵉʷ)")
-    # println("R⁺   = $(R⁺)")
-    # println("R⁰   = $(R⁰)")
-    # println("R⁻   = $(R⁻)")
     dd.R = vcat(Rⁿᵉʷ, R⁺, R⁰)
     push!(dd.K, i)
-    # canonicalize!(dd)
     nothing
 end
 
@@ -77,9 +95,9 @@ function partition_rays{T<:Real}(R::Vector{Vector{T}}, a::Vector{T})
             continue
         end
         val = dot(a,r)
-        if val > 0#10eps()
+        if val > ε
             push!(R⁺, r)
-        elseif val < 0#-10n*eps()
+        elseif val < -ε
             push!(R⁻, r)
         else
             push!(R⁰, r)
@@ -103,21 +121,10 @@ function active_sets(A, r, s)
     m = size(A,1)
     Z = Int[]
     sizehint!(Z,m)
-    ϵ = 10eps()
     for i in 1:m
-        if abs(Ar[i]) <= ϵ && abs(As[i]) <= ϵ
+        if abs(Ar[i]) <= ε && abs(As[i]) <= ε
             push!(Z, i)
         end
     end
     return Z
-end
-
-function canonicalize!(dd::DoubleDescription)
-    m, n = size(dd.A)
-    for i in 1:length(dd.R)
-        r₁ = dd.R[i][1]
-        if r₁ != 0
-            dd.R[i] ./= r₁
-        end
-    end
 end

@@ -1,11 +1,3 @@
-function extrema{T<:Real}(A::Matrix{T}, b::Vector{T})
-    
-end
-
-function facets{T<:Real}(vertices::Vector{Vector{T}}, rays::Vector{Vector{T}})
-    
-end
-
 function write_ine(str::String, A::Matrix{Int}, b::Vector{Int})
     fp = open(str, "w")
     println(fp, "H-representation")

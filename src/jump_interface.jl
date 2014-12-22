@@ -50,3 +50,18 @@ function write_ine(model::JuMP.Model, fname::String)
     end
 end
 
+function extrema(model::JuMP.Model)
+    A, b = homogeneous_system(model)
+    dd = double_description([b A])
+
+    vertices, rays = Vector{Float64}[], Vector{Float64}[]
+    for r in dd.R
+        if abs(r[1]) > 10eps()
+            push!(vertices, r[2:end] ./ r[1])
+        else
+            push!(rays, r[2:end] ./ minimum(r[find(r)]))
+        end
+    end
+    return vertices, rays
+end
+
