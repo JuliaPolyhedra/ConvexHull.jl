@@ -1,4 +1,4 @@
-using CDD, JuMP, Base.Test
+using ConvexHull, JuMP, Base.Test
 
 # A simple square
 let

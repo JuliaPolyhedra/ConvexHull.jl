@@ -1,4 +1,4 @@
-module CDD
+module ConvexHull
 
 using JuMP
 
