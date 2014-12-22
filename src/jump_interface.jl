@@ -56,9 +56,12 @@ function extrema(model::JuMP.Model)
 
     vertices, rays = Vector{Float64}[], Vector{Float64}[]
     for r in dd.R
-        if abs(r[1]) > 10eps()
-            push!(vertices, r[2:end] ./ r[1])
+        # if abs(r[1]) > 10eps()
+        if abs(r[1] - 1) < ε
+            push!(vertices, r[2:end])
+            # push!(vertices, r[2:end] ./ r[1])
         else
+            @assert abs(r[1]) < ε
             push!(rays, r[2:end] ./ minimum(r[find(r)]))
         end
     end

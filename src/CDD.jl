@@ -2,8 +2,8 @@ module CDD
 
 using JuMP
 
-export homogeneous_system, write_ine, read_ext, double_description, canonicalize!, extrema,
-       is_approx_included
+export homogeneous_system, write_ine, read_ext, double_description, canonicalize!, 
+       extrema, is_approx_included
 
 const ε = 10eps()
 

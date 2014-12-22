@@ -21,7 +21,7 @@ function initial_description{T<:Real}(A::Matrix{T})
     end
     Aₖ = A[collect(K),:]
     R = Aₖ \ eye(n,n)
-    Rₖ = Vector{T}[R[:,i] for i in 1:n]
+    Rₖ = Vector{T}[canonicalize!(R[:,i]) for i in 1:n]
     return DoubleDescription(A,Rₖ,K)
 end
 
@@ -61,7 +61,7 @@ function canonicalize!(v)
     for i in 1:n
         v[i] = v[i] / val
     end
-    nothing
+    v
 end
 
 # use Lemma 8 from Fukuda (1996) to update the double description
