@@ -5,7 +5,7 @@ let
     m = Model()
     @defVar(m, 0 ≤ x[1:2] ≤ 1)
 
-    v, r = extrema(m)
+    v, r = get_extrema(m)
 
     @test length(v) == 4
     @test length(r) == 0
@@ -21,7 +21,7 @@ let
     m = Model()
     @defVar(m, 0 ≤ x[1:N] ≤ 1)
 
-    v, r = extrema(m)
+    v, r = get_extrema(m)
 
     @test length(v) == 2^N
     @test length(r) == 0
@@ -42,7 +42,7 @@ let
     @defVar(m, x[1:N] >= 0)
     @addConstraint(m, sum{x[i], i=1:N} == 1)
 
-    v, r = extrema(m)
+    v, r = get_extrema(m)
 
     @test length(v) == N
     @test length(r) == 0
@@ -61,7 +61,7 @@ let
     @defVar(m, x[1:N] >= 0)
     @addConstraint(m, sum{x[i], i=1:N} ≤ 1)
 
-    v, r = extrema(m)
+    v, r = get_extrema(m)
 
     @test length(v) == N+1
     @test length(r) == 0
@@ -86,7 +86,7 @@ let
         1 + x ≥ 0
     end)
 
-    v, r = extrema(m)
+    v, r = get_extrema(m)
 
     @test length(r) == 2
     @test length(v) == 3
@@ -117,7 +117,7 @@ let
         end
     end
 
-    v, r = extrema(m)
+    v, r = get_extrema(m)
     @test length(v) == 2N
     @test length(r) == 0
 

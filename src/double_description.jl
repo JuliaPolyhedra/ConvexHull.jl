@@ -1,7 +1,18 @@
+type CountedVector{T<:Real}
+    v::Vector{T}
+    id::Int
+
+    CountedVector(v::Vector{T},id::Int) = new(canonicalize!(v),id)
+end
+CountedVector{T<:Real}(v::Vector{T},id::Int) = CountedVector{T}(v,id)
+
+Base.vec(c::CountedVector) = c.v
+
 type DoubleDescription{T<:Real}
     A::Matrix{T}
-    R::Vector{Vector{T}}
+    R::Vector{CountedVector{T}}
     K::Set{Int}
+    num_rays::Int
 end
 
 function initial_description{T<:Real}(A::Matrix{T})
@@ -21,8 +32,8 @@ function initial_description{T<:Real}(A::Matrix{T})
     end
     Aₖ = A[collect(K),:]
     R = Aₖ \ eye(n,n)
-    Rₖ = Vector{T}[canonicalize!(R[:,i]) for i in 1:n]
-    return DoubleDescription(A,Rₖ,K)
+    Rₖ = [CountedVector{T}(R[:,i],i) for i in 1:n]
+    return DoubleDescription(A,Rₖ,K,n)
 end
 
 isredundant(x) = false
@@ -46,13 +57,13 @@ function is_approx_included(haystack, needle)
     n = length(needle)
     diff = zeros(n)
     for h in haystack
-        diff = norm(h-needle)
+        diff = norm(vec(h)-needle)
         diff < n*ε && return true
     end
     return false
 end
 
-function canonicalize!(v)
+function canonicalize!{T<:Real}(v::Vector{T})
     n = length(v)
     val = abs(v[1])
     if val < ε
@@ -68,33 +79,32 @@ end
 function update!{T<:Real}(dd::DoubleDescription{T}, i)
     m, n = size(dd.A)
     Aᵢ = reshape(dd.A[i,:], (n,))
-    Rⁿᵉʷ = Vector{T}[]
+    Rⁿᵉʷ = CountedVector{T}[]
     R⁺, R⁰, R⁻ = partition_rays(dd.R, Aᵢ)
     for r in R⁺, s in R⁻
         if isadjacent(dd,r,s)
-            v = dot(Aᵢ,r)*s - dot(Aᵢ,s)*r
-            canonicalize!(v)
-            if sum(abs(v)) > n*ε && !is_approx_included(R⁰, v) && !is_approx_included(Rⁿᵉʷ, v)
+            w = dot(Aᵢ,vec(r))*vec(s) - dot(Aᵢ,vec(s))*vec(r)
+            v = CountedVector(w,dd.num_rays)
+            if sum(abs(w)) > n*ε && !is_approx_included(R⁰, vec(w)) && !is_approx_included(Rⁿᵉʷ, vec(w))
+                dd.num_rays += 1
                 push!(Rⁿᵉʷ, v)
-            # else
-                # error("Somehow we added a zero vector?")
             end
         end
     end
-    dd.R = vcat(Rⁿᵉʷ, R⁺, R⁰)
+    dd.R = vcat(R⁺, R⁰, Rⁿᵉʷ)
     push!(dd.K, i)
     nothing
 end
 
-function partition_rays{T<:Real}(R::Vector{Vector{T}}, a::Vector{T})
-    R⁺, R⁰, R⁻ = Vector{T}[], Vector{T}[], Vector{T}[]
+function partition_rays{T<:Real}(R::Vector{CountedVector{T}}, a::Vector{T})
+    R⁺, R⁰, R⁻ = CountedVector{T}[], CountedVector{T}[], CountedVector{T}[]
     n = length(a)
     for r in R
-        if sum(abs(r)) < 10n*eps()
+        if sum(abs(vec(r))) < 10n*eps()
             println("have a zero vector!")
             continue
         end
-        val = dot(a,r)
+        val = dot(a,vec(r))
         if val > ε
             push!(R⁺, r)
         elseif val < -ε
@@ -116,8 +126,8 @@ function check_adjacency(A, r, s, d)
 end
 
 function active_sets(A, r, s)
-    Ar = A*r
-    As = A*s
+    Ar = A*vec(r)
+    As = A*vec(s)
     m = size(A,1)
     Z = Int[]
     sizehint!(Z,m)
