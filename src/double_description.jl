@@ -32,30 +32,30 @@ function initial_description{T<:Real}(A::Matrix{T})
         end
         r > n && break
     end
-    Aₖ = A[collect(K),:]
+    Aₖ = A[sort(collect(K)),:]
     R = Aₖ \ eye(n,n)
     Rₖ = [CountedVector{T}(R[:,i],i) for i in 1:n]
     dd = DoubleDescription(A,Rₖ,K,Dict{(Int,Int),Bool}(),n,rank(A))
     for i in 1:n
+        Ar = Aₖ*vec(Rₖ[i])
         for j in (i+1):n
-            cache_adjacency!(dd, Rₖ[i], Rₖ[j])
+            As = Aₖ*vec(Rₖ[j])
+            id = extrema([Rₖ[i].id,Rₖ[j].id])
+            cache_adjacency!(dd, Aₖ, n, Ar, As, id)
         end
     end
     return dd
 end
 
-isredundant(x) = false
-
 function double_description{T<:Real}(A::Matrix{T})
     A = [A; zeros(T,1,size(A,2))]
     A[end,1] = one(T)
     m, n = size(A)
-    isredundant(A) && error("Cannot yet handle redundant systems")
-    rank(A) < n && error("Cannot yet handle nontrivial lineality spaces")
     dd = initial_description(A)
     Kᶜ = setdiff(1:m, dd.K)
     while !isempty(Kᶜ)
         i = pop!(Kᶜ)
+        println("iteration $(length(dd.K)+1) of $m")
         update!(dd, i)
     end
     return dd
@@ -89,23 +89,37 @@ function update!{T<:Real}(dd::DoubleDescription{T}, i)
     Aᵢ = reshape(dd.A[i,:], (n,))
     Rⁿᵉʷ = CountedVector{T}[]
     R⁺, R⁰, R⁻ = partition_rays(dd.R, Aᵢ)
+    push!(dd.K, i)
+    #println("adj = $(dd.adj)")
     for r in R⁺, s in R⁻
+        #println("r = $r")
+        #println("s = $s")
+        #println("w = $(dot(Aᵢ,vec(r))*vec(s) - dot(Aᵢ,vec(s))*vec(r))")
+        #println("adj = $(isadjacent(dd,r,s))")
         if isadjacent(dd,r,s)
             w = dot(Aᵢ,vec(r))*vec(s) - dot(Aᵢ,vec(s))*vec(r)
-            v = CountedVector(w,dd.num_rays)
-            if sum(abs(w)) > n*ε && !is_approx_included(R⁰, vec(w)) && !is_approx_included(Rⁿᵉʷ, vec(w))
+            v = CountedVector(w,dd.num_rays+1)
+            if sum(abs(w)) > n*ε && 
+               !is_approx_included(R⁰,   vec(w)) && 
+               !is_approx_included(Rⁿᵉʷ, vec(w))
                 dd.num_rays += 1
                 push!(Rⁿᵉʷ, v)
             end
         end
     end
     dd.R = vcat(R⁺, R⁰, Rⁿᵉʷ)
-    for r in dd.R, s in Rⁿᵉʷ
-        r.id == s.id && continue
-        cache_adjacency!(dd, r, s)
+    Aₖ = dd.A[sort(collect(dd.K)),:]
+    # Aₖ = dd.A
+    d = rank(Aₖ)
+    for s in Rⁿᵉʷ
+        As = Aₖ*vec(s)
+        for r in dd.R
+            r.id == s.id && continue
+            Ar = Aₖ*vec(r)
+            id = extrema([r.id, s.id])
+            cache_adjacency!(dd, Aₖ, d, Ar, As, id)
+        end
     end
-
-    push!(dd.K, i)
     nothing
 end
 
@@ -129,36 +143,43 @@ function partition_rays{T<:Real}(R::Vector{CountedVector{T}}, a::Vector{T})
     return R⁺, R⁰, R⁻
 end
 
-# isadjacent(dd, r, s) = check_adjacency(dd.A, r, s, rank(dd.A))
 isadjacent(dd, r, s) = dd.adj[extrema([r.id,s.id])]
 
-function cache_adjacency!(dd, r, s)
-    d = dd.rankᴬ
-    Z = active_sets(dd, r, s)
+function cache_adjacency!(dd, Aₖ, d, Ar, As, id)
+    Z = active_sets(dd, Ar, As)
+    # println("Z = $Z")
     if length(Z) < d - 2
-        return dd.adj[extrema([r.id,s.id])] = false
+        return (dd.adj[id] = false)
     end
-    dd.adj[extrema([r.id,s.id])] = (rank(dd.A[Z,:]) == d - 2)
+    dd.adj[id] = (rank(Aₖ[Z,:]) == d - 2)
 end
 
-function active_sets(dd, r, s)
-    A = dd.A
-    Ar = A*vec(r)
+function active_sets(dd, Ar, As)
+    # println("Ar, As = ")
+    # println([Ar As])
     Z = Int[]
-    m = size(A,1)
-    cnt = 0
-    for i in 1:m
-        if abs(Ar[i]) <= ε
-            cnt += 1
-        end
-    end
-    cnt < dd.rankᴬ - 2 && return Z # shortcurcuit early to avoid the secont mat-vec multiplication
-    As = A*vec(s)
+    m = length(Ar)
     sizehint!(Z,m)
     for i in 1:m
-        if abs(Ar[i]) <= ε && abs(As[i]) <= ε
+        if abs(Ar[i]) ≤ ε && abs(As[i]) ≤ ε
             push!(Z, i)
         end
     end
     return Z
 end
+
+# function active_sets(dd, r, s)
+#     A = dd.A[collect(dd.K),:]
+#     Ar = A*vec(r)
+#     As = A*vec(s)
+#     m = length(dd.K)
+#     Z = Int[]
+#     sizehint!(Z,m)
+#     m = length(dd.K)
+#     for i in 1:m
+#         if abs(Ar[i]) <= ε && abs(As[i]) <= ε
+#             push!(Z, i)
+#         end
+#     end
+#     return Z
+# end

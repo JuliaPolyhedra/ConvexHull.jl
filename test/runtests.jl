@@ -55,22 +55,23 @@ let
 end
 
 # The 6D simplex, plus the origin
-let
-    N = 6
-    m = Model()
-    @defVar(m, x[1:N] >= 0)
-    @addConstraint(m, sum{x[i], i=1:N} ≤ 1)
+for N in 1:3:51
+    let
+        m = Model()
+        @defVar(m, x[1:N] >= 0)
+        @addConstraint(m, sum{x[i], i=1:N} ≤ 1)
 
-    v, r = get_extrema(m)
+        v, r = get_extrema(m)
 
-    @test length(v) == N+1
-    @test length(r) == 0
-    
-    @test zeros(N) in v
-    for k in 1:N
-        ex = zeros(N)
-        ex[k] = 1
-        @test ex in v
+        @test length(v) == N+1
+        @test length(r) == 0
+        
+        @test zeros(N) in v
+        for k in 1:N
+            ex = zeros(N)
+            ex[k] = 1
+            @test ex in v
+        end
     end
 end
 
@@ -104,28 +105,30 @@ let
 end
 
 # cross polytope
-let
-    m = Model()
+for N in 2:9
+    let
+        m = Model()
 
-    N = 6
-    @defVar(m, x[1:N])
+        @defVar(m, x[1:N])
 
-    for k in 0:N
-        for S in combinations(1:N, k)
-            Sᶜ = setdiff(1:N, S)
-            @addConstraint(m, sum{x[i], i in S} - sum{x[i], i in Sᶜ} ≤ 1)
+        for k in 0:N
+            for S in combinations(1:N, k)
+                Sᶜ = setdiff(1:N, S)
+                @addConstraint(m, sum{x[i], i in S} - sum{x[i], i in Sᶜ} ≤ 1)
+            end
         end
-    end
 
-    v, r = get_extrema(m)
-    @test length(v) == 2N
-    @test length(r) == 0
+        v, r = get_extrema(m)
 
-    for i in 1:N
-        ex = zeros(N)
-        ex[i] = 1
-        @test is_approx_included(v, ex)
-        ex[i] = -1
-        @test is_approx_included(v, ex)
+        @test length(v) == 2N
+        @test length(r) == 0
+
+        for i in 1:N
+            ex = zeros(N)
+            ex[i] = 1
+            @test is_approx_included(v, ex)
+            ex[i] = -1
+            @test is_approx_included(v, ex)
+        end
     end
 end
