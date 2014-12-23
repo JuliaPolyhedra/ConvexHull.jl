@@ -12,7 +12,9 @@ type DoubleDescription{T<:Real}
     A::Matrix{T}
     R::Vector{CountedVector{T}}
     K::Set{Int}
+    adj::Dict{(Int,Int),Bool}
     num_rays::Int
+    rankᴬ::Int
 end
 
 function initial_description{T<:Real}(A::Matrix{T})
@@ -33,7 +35,13 @@ function initial_description{T<:Real}(A::Matrix{T})
     Aₖ = A[collect(K),:]
     R = Aₖ \ eye(n,n)
     Rₖ = [CountedVector{T}(R[:,i],i) for i in 1:n]
-    return DoubleDescription(A,Rₖ,K,n)
+    dd = DoubleDescription(A,Rₖ,K,Dict{(Int,Int),Bool}(),n,rank(A))
+    for i in 1:n
+        for j in (i+1):n
+            cache_adjacency!(dd, Rₖ[i], Rₖ[j])
+        end
+    end
+    return dd
 end
 
 isredundant(x) = false
@@ -92,6 +100,11 @@ function update!{T<:Real}(dd::DoubleDescription{T}, i)
         end
     end
     dd.R = vcat(R⁺, R⁰, Rⁿᵉʷ)
+    for r in dd.R, s in Rⁿᵉʷ
+        r.id == s.id && continue
+        cache_adjacency!(dd, r, s)
+    end
+
     push!(dd.K, i)
     nothing
 end
@@ -116,20 +129,31 @@ function partition_rays{T<:Real}(R::Vector{CountedVector{T}}, a::Vector{T})
     return R⁺, R⁰, R⁻
 end
 
-isadjacent(dd, r, s) = check_adjacency(dd.A, r, s, rank(dd.A))
+# isadjacent(dd, r, s) = check_adjacency(dd.A, r, s, rank(dd.A))
+isadjacent(dd, r, s) = dd.adj[extrema([r.id,s.id])]
 
-
-function check_adjacency(A, r, s, d)
-    Z = active_sets(A, r, s)
-    length(Z) < d - 2 && return false
-    return rank(A[Z,:]) == d - 2
+function cache_adjacency!(dd, r, s)
+    d = dd.rankᴬ
+    Z = active_sets(dd, r, s)
+    if length(Z) < d - 2
+        return dd.adj[extrema([r.id,s.id])] = false
+    end
+    dd.adj[extrema([r.id,s.id])] = (rank(dd.A[Z,:]) == d - 2)
 end
 
-function active_sets(A, r, s)
+function active_sets(dd, r, s)
+    A = dd.A
     Ar = A*vec(r)
-    As = A*vec(s)
-    m = size(A,1)
     Z = Int[]
+    m = size(A,1)
+    cnt = 0
+    for i in 1:m
+        if abs(Ar[i]) <= ε
+            cnt += 1
+        end
+    end
+    cnt < dd.rankᴬ - 2 && return Z # shortcurcuit early to avoid the secont mat-vec multiplication
+    As = A*vec(s)
     sizehint!(Z,m)
     for i in 1:m
         if abs(Ar[i]) <= ε && abs(As[i]) <= ε
