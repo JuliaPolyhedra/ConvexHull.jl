@@ -103,6 +103,9 @@ function update!{T<:Real}(dd::DoubleDescription{T}, i)
     dd.R = vcat(R⁺, R⁰, Rⁿᵉʷ)
     push!(dd.K, i)
     Aₖ = dd.A[sort(collect(dd.K)),:]
+    # should really add a test right about here to ensure
+    # that old rays do not become adjacent...I think this 
+    # can only happen if both v,w ∈ R⁰
     d = rank(Aₖ)
     for s in Rⁿᵉʷ
         As = Aₖ*vec(s)
