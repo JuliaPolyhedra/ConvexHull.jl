@@ -1,20 +1,26 @@
-type CountedVector{T<:Real}
-    v::Vector{T}
-    id::Int
-
-    CountedVector(v::Vector{T},id::Int) = new(canonicalize!(v),id)
-end
-CountedVector{T<:Real}(v::Vector{T},id::Int) = CountedVector{T}(v,id)
-
-Base.vec(c::CountedVector) = c.v
-
 type DoubleDescription{T<:Real}
     A::Matrix{T}
-    R::Vector{CountedVector{T}}
+    R::Vector
     K::Set{Int}
     adj::Dict{(Int,Int),Bool}
     num_rays::Int
 end
+
+type CountedVector{T<:Real}
+    v::Vector{T}
+    Av::Vector{T}
+    dd::DoubleDescription{T}
+    id::Int
+
+    function CountedVector(v::Vector{T},dd::DoubleDescription{T})
+        dd.num_rays += 1
+        canonicalize!(v)
+        new(v,dd.A*v,dd,dd.num_rays)
+    end
+end
+CountedVector{T<:Real}(v::Vector{T},dd::DoubleDescription{T}) = CountedVector{T}(v,dd)
+
+Base.vec(c::CountedVector) = c.v
 
 function initial_description{T<:Real}(A::Matrix{T})
     m,n = size(A)
@@ -31,14 +37,16 @@ function initial_description{T<:Real}(A::Matrix{T})
         end
         r > n && break
     end
-    Aₖ = A[sort(collect(K)),:]
+    cK = sort(collect(K))
+    Aₖ = A[cK,:]
     R = Aₖ \ eye(n,n)
-    Rₖ = [CountedVector{T}(R[:,i],i) for i in 1:n]
-    dd = DoubleDescription(A,Rₖ,K,Dict{(Int,Int),Bool}(),n)
+    dd = DoubleDescription(A,CountedVector{T}[],K,Dict{(Int,Int),Bool}(),n)
+    Rₖ = [CountedVector{T}(R[:,i],dd) for i in 1:n]
+    dd.R = Rₖ
     for i in 1:n
-        Ar = Aₖ*vec(Rₖ[i])
+        Ar = Rₖ[i].Av[cK]
         for j in (i+1):n
-            As = Aₖ*vec(Rₖ[j])
+            As = Rₖ[j].Av[cK] 
             id = extrema([Rₖ[i].id,Rₖ[j].id])
             cache_adjacency!(dd, Aₖ, n, Ar, As, id)
         end
@@ -91,7 +99,7 @@ function update!{T<:Real}(dd::DoubleDescription{T}, i)
     for r in R⁺, s in R⁻
         if isadjacent(dd,r,s)
             w = dot(Aᵢ,vec(r))*vec(s) - dot(Aᵢ,vec(s))*vec(r)
-            v = CountedVector(w,dd.num_rays+1)
+            v = CountedVector(w,dd)
             if sum(abs(w)) > n*ε && 
                !is_approx_included(R⁰,   vec(w)) && 
                !is_approx_included(Rⁿᵉʷ, vec(w))
@@ -102,16 +110,17 @@ function update!{T<:Real}(dd::DoubleDescription{T}, i)
     end
     dd.R = vcat(R⁺, R⁰, Rⁿᵉʷ)
     push!(dd.K, i)
-    Aₖ = dd.A[sort(collect(dd.K)),:]
+    cK = sort(collect(dd.K))
+    Aₖ = dd.A[cK,:]
     # should really add a test right about here to ensure
     # that old rays do not become adjacent...I think this 
     # can only happen if both v,w ∈ R⁰
     d = rank(Aₖ)
     for s in Rⁿᵉʷ
-        As = Aₖ*vec(s)
+        As = s.Av[cK]#Aₖ*vec(s)
         for r in dd.R
             r.id == s.id && continue
-            Ar = Aₖ*vec(r)
+            Ar = r.Av[cK]#Aₖ*vec(r)
             id = extrema([r.id, s.id])
             cache_adjacency!(dd, Aₖ, d, Ar, As, id)
         end
