@@ -138,7 +138,7 @@ let
 end
 
 # cross polytope
-for N in 2:8
+for N in 2:9
     let
         m = Model()
 

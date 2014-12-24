@@ -14,7 +14,6 @@ type DoubleDescription{T<:Real}
     K::Set{Int}
     adj::Dict{(Int,Int),Bool}
     num_rays::Int
-    rankᴬ::Int
 end
 
 function initial_description{T<:Real}(A::Matrix{T})
@@ -35,7 +34,7 @@ function initial_description{T<:Real}(A::Matrix{T})
     Aₖ = A[sort(collect(K)),:]
     R = Aₖ \ eye(n,n)
     Rₖ = [CountedVector{T}(R[:,i],i) for i in 1:n]
-    dd = DoubleDescription(A,Rₖ,K,Dict{(Int,Int),Bool}(),n,rank(A))
+    dd = DoubleDescription(A,Rₖ,K,Dict{(Int,Int),Bool}(),n)
     for i in 1:n
         Ar = Aₖ*vec(Rₖ[i])
         for j in (i+1):n
@@ -143,6 +142,9 @@ function cache_adjacency!(dd, Aₖ, d, Ar, As, id)
     Z = active_sets(dd, Ar, As)
     if length(Z) < d - 2
         return (dd.adj[id] = false)
+    end
+    if length(intersect(Z,dd.K)) ≥ d - 2
+        return (dd.adj[id] = true)
     end
     dd.adj[id] = (rank(Aₖ[Z,:]) == d - 2)
 end
