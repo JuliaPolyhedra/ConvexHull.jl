@@ -44,11 +44,11 @@ function initial_description{T<:Real}(A::Matrix{T})
     Rₖ = [CountedVector{T}(R[:,i],dd) for i in 1:n]
     dd.R = Rₖ
     for i in 1:n
-        Ar = Rₖ[i].Av[cK]
+        # Ar = Rₖ[i].Av[cK]
         for j in (i+1):n
-            As = Rₖ[j].Av[cK] 
+            # As = Rₖ[j].Av[cK] 
             id = extrema([Rₖ[i].id,Rₖ[j].id])
-            cache_adjacency!(dd, Aₖ, n, Ar, As, id)
+            cache_adjacency!(dd, n, Rₖ[i].Av[cK], Rₖ[j].Av[cK], id)
         end
     end
     return dd
@@ -63,6 +63,7 @@ function double_description{T<:Real}(A::Matrix{T})
     while !isempty(Kᶜ)
         i = pop!(Kᶜ)
         println("iteration $(length(dd.K)+1) of $m")
+        # length(dd.K) == 31 && break
         update!(dd, i)
     end
     return dd
@@ -117,12 +118,12 @@ function update!{T<:Real}(dd::DoubleDescription{T}, i)
     # can only happen if both v,w ∈ R⁰
     d = rank(Aₖ)
     for s in Rⁿᵉʷ
-        As = s.Av[cK]#Aₖ*vec(s)
+        # As = s.Av[cK]#Aₖ*vec(s)
         for r in dd.R
             r.id == s.id && continue
-            Ar = r.Av[cK]#Aₖ*vec(r)
+            # Ar = r.Av[cK]#Aₖ*vec(r)
             id = extrema([r.id, s.id])
-            cache_adjacency!(dd, Aₖ, d, Ar, As, id)
+            cache_adjacency!(dd, d, r.Av[cK], s.Av[cK], id)
         end
     end
     nothing
@@ -150,15 +151,17 @@ end
 
 isadjacent(dd, r, s) = dd.adj[extrema([r.id,s.id])]
 
-function cache_adjacency!(dd, Aₖ, d, Ar, As, id)
+function cache_adjacency!(dd, d, Ar, As, id::(Int,Int))
     Z = active_sets(dd, Ar, As)
     if length(Z) < d - 2
-        return (dd.adj[id] = false)
+        val = false
+    elseif length(intersect(Z,dd.K)) ≥ d - 2
+        val = true
+    else
+        val = (rank(dd.A[sort(collect(dd.K)),:][Z,:]) == d - 2)
     end
-    if length(intersect(Z,dd.K)) ≥ d - 2
-        return (dd.adj[id] = true)
-    end
-    dd.adj[id] = (rank(Aₖ[Z,:]) == d - 2)
+    dd.adj[id] = val
+    return val
 end
 
 function active_sets(dd, Ar, As)
