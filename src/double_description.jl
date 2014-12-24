@@ -48,8 +48,8 @@ function initial_description{T<:Real}(A::Matrix{T})
 end
 
 function double_description{T<:Real}(A::Matrix{T})
-    A = [A; zeros(T,1,size(A,2))]
-    A[end,1] = one(T)
+    A = [zeros(T,1,size(A,2)); A]
+    A[1,1] = one(T)
     m, n = size(A)
     dd = initial_description(A)
     Kᶜ = setdiff(1:m, dd.K)
@@ -75,7 +75,7 @@ function canonicalize!{T<:Real}(v::Vector{T})
     n = length(v)
     val = abs(v[1])
     if val < ε
-        val = minimum(findfirst(v .> ε))
+        val = abs(v[findfirst(abs(v) .> ε)])
     end
     for i in 1:n
         v[i] = v[i] / val
@@ -89,13 +89,7 @@ function update!{T<:Real}(dd::DoubleDescription{T}, i)
     Aᵢ = reshape(dd.A[i,:], (n,))
     Rⁿᵉʷ = CountedVector{T}[]
     R⁺, R⁰, R⁻ = partition_rays(dd.R, Aᵢ)
-    push!(dd.K, i)
-    #println("adj = $(dd.adj)")
     for r in R⁺, s in R⁻
-        #println("r = $r")
-        #println("s = $s")
-        #println("w = $(dot(Aᵢ,vec(r))*vec(s) - dot(Aᵢ,vec(s))*vec(r))")
-        #println("adj = $(isadjacent(dd,r,s))")
         if isadjacent(dd,r,s)
             w = dot(Aᵢ,vec(r))*vec(s) - dot(Aᵢ,vec(s))*vec(r)
             v = CountedVector(w,dd.num_rays+1)
@@ -108,8 +102,8 @@ function update!{T<:Real}(dd::DoubleDescription{T}, i)
         end
     end
     dd.R = vcat(R⁺, R⁰, Rⁿᵉʷ)
+    push!(dd.K, i)
     Aₖ = dd.A[sort(collect(dd.K)),:]
-    # Aₖ = dd.A
     d = rank(Aₖ)
     for s in Rⁿᵉʷ
         As = Aₖ*vec(s)
@@ -127,7 +121,7 @@ function partition_rays{T<:Real}(R::Vector{CountedVector{T}}, a::Vector{T})
     R⁺, R⁰, R⁻ = CountedVector{T}[], CountedVector{T}[], CountedVector{T}[]
     n = length(a)
     for r in R
-        if sum(abs(vec(r))) < 10n*eps()
+        if sum(abs(vec(r))) < n*ε
             println("have a zero vector!")
             continue
         end
@@ -147,7 +141,6 @@ isadjacent(dd, r, s) = dd.adj[extrema([r.id,s.id])]
 
 function cache_adjacency!(dd, Aₖ, d, Ar, As, id)
     Z = active_sets(dd, Ar, As)
-    # println("Z = $Z")
     if length(Z) < d - 2
         return (dd.adj[id] = false)
     end
@@ -155,8 +148,6 @@ function cache_adjacency!(dd, Aₖ, d, Ar, As, id)
 end
 
 function active_sets(dd, Ar, As)
-    # println("Ar, As = ")
-    # println([Ar As])
     Z = Int[]
     m = length(Ar)
     sizehint!(Z,m)
@@ -167,19 +158,3 @@ function active_sets(dd, Ar, As)
     end
     return Z
 end
-
-# function active_sets(dd, r, s)
-#     A = dd.A[collect(dd.K),:]
-#     Ar = A*vec(r)
-#     As = A*vec(s)
-#     m = length(dd.K)
-#     Z = Int[]
-#     sizehint!(Z,m)
-#     m = length(dd.K)
-#     for i in 1:m
-#         if abs(Ar[i]) <= ε && abs(As[i]) <= ε
-#             push!(Z, i)
-#         end
-#     end
-#     return Z
-# end
