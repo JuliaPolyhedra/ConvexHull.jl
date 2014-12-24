@@ -50,12 +50,13 @@ function write_ine(model::JuMP.Model, fname::String)
     end
 end
 
-function extrema(model::JuMP.Model)
+function get_extrema(model::JuMP.Model)
     A, b = homogeneous_system(model)
     dd = double_description([b A])
 
     vertices, rays = Vector{Float64}[], Vector{Float64}[]
-    for r in dd.R
+    for cv in dd.R
+        r = vec(cv)
         # if abs(r[1]) > 10eps()
         if abs(r[1] - 1) < ε
             push!(vertices, r[2:end])

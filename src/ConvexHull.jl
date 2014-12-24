@@ -3,7 +3,9 @@ module ConvexHull
 using JuMP
 
 export homogeneous_system, write_ine, read_ext, double_description, canonicalize!, 
-       extrema, is_approx_included
+       get_extrema, is_approx_included
+
+importall Base
 
 const ε = 10eps()
 
