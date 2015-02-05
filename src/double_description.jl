@@ -2,23 +2,22 @@ type DoubleDescription{T<:Real}
     A::Matrix{T}
     R::Vector
     K::Set{Int}
-    adj::Dict{(Int,Int),Bool}
-    num_rays::Int
+    L #Vector{LinkedList}
 end
 
 type CountedVector{T<:Real}
     v::Vector{T}
     Av::Vector{T}
     dd::DoubleDescription{T}
-    id::Int
 
     function CountedVector(v::Vector{T},dd::DoubleDescription{T})
-        dd.num_rays += 1
         canonicalize!(v)
-        new(v,dd.A*v,dd,dd.num_rays)
+        new(v,dd.A*v,dd)
     end
 end
 CountedVector{T<:Real}(v::Vector{T},dd::DoubleDescription{T}) = CountedVector{T}(v,dd)
+
+Base.show(io::IO, v::CountedVector) = show(io, v.v)
 
 Base.vec(c::CountedVector) = c.v
 
@@ -37,21 +36,67 @@ function initial_description{T<:Real}(A::Matrix{T})
         end
         r > n && break
     end
-    cK = sort(collect(K))
-    Aₖ = A[cK,:]
+    cK  = sort(collect(K))
+    cKᶜ = setdiff(1:m,cK) 
+    A = vcat(A[cK,:],
+             A[cKᶜ,:])
+    Aₖ = A[1:n,:]
+    d = rank(Aₖ)
     R = Aₖ \ eye(n,n)
-    dd = DoubleDescription(A,CountedVector{T}[],K,Dict{(Int,Int),Bool}(),n)
+    dd = DoubleDescription(A,
+                           CountedVector{T}[],
+                           Set{Int}(1:n),
+                           [(CountedVector{T},CountedVector{T})[] for i in 1:m])
     Rₖ = [CountedVector{T}(R[:,i],dd) for i in 1:n]
     dd.R = Rₖ
-    for i in 1:n
-        # Ar = Rₖ[i].Av[cK]
-        for j in (i+1):n
-            # As = Rₖ[j].Av[cK] 
-            id = extrema([Rₖ[i].id,Rₖ[j].id])
-            cache_adjacency!(dd, n, Rₖ[i].Av[cK], Rₖ[j].Av[cK], id)
+    for i in 1:n, j in 1:n
+        i == j && continue
+        r, s = Rₖ[i], Rₖ[j]
+        if satisfies_cₖ(r,s)
+            if is_adjacent(dd, r.Av[1:n], s.Av[1:n], d)
+                conditional_edge_store!(dd, r, s, mii(r), n)
+            end
         end
     end
     return dd
+end
+
+function mii(r)
+    val = findfirst(r.Av) do x
+        x < -ε
+    end
+    val == 0 && (val = length(r.Av)+1)
+    return val
+end
+
+function satisfies_cₖ(r,s)
+    (k = mii(r)) < mii(s) || return false
+    abs(s.Av[k]) ≤ ε && return false
+    return true
+end
+
+function is_adjacent(dd, Ar, As, d)
+    Z = active_sets(dd, Ar, As)
+    if length(Z) < d - 2
+        return false
+    elseif length(intersect(Z,dd.K)) ≥ d - 2
+        return true
+    else
+        return (rank(dd.A[sort(collect(dd.K)),:][Z,:]) == d - 2)
+    end
+end
+
+function conditional_edge_store!(dd, r, s, k, i)
+    Z = active_sets(dd, r.Av, s.Av)
+    incl = any((i+1):(k-1)) do j
+        j in Z
+    end
+    if !incl
+        # if is_adjacent(dd, r, s)
+            # dd.L[k] = list(dd.L[k], (r,s))
+            push!(dd.L[k], (r,s))
+        # end
+    end
 end
 
 function double_description{T<:Real}(A::Matrix{T})
@@ -59,10 +104,9 @@ function double_description{T<:Real}(A::Matrix{T})
     A[1,1] = one(T)
     m, n = size(A)
     dd = initial_description(A)
-    Kᶜ = setdiff(1:m, dd.K)
-    while !isempty(Kᶜ)
-        i = pop!(Kᶜ)
-        println("iteration $(length(dd.K)+1) of $m")
+    nK = length(dd.K)
+    for i in (nK+1):m
+        println("iteration $i of $m")
         # length(dd.K) == 31 && break
         update!(dd, i)
     end
@@ -83,7 +127,10 @@ function canonicalize!{T<:Real}(v::Vector{T})
     n = length(v)
     val = abs(v[1])
     if val < ε
-        val = abs(v[findfirst(abs(v) .> ε)])
+        tmp = filter(v) do x
+            abs(x) > ε
+        end
+        val = abs(minimum(tmp))
     end
     for i in 1:n
         v[i] = v[i] / val
@@ -97,33 +144,29 @@ function update!{T<:Real}(dd::DoubleDescription{T}, i)
     Aᵢ = reshape(dd.A[i,:], (n,))
     Rⁿᵉʷ = CountedVector{T}[]
     R⁺, R⁰, R⁻ = partition_rays(dd.R, Aᵢ)
-    for r in R⁺, s in R⁻
-        if isadjacent(dd,r,s)
+    for (r,s) in dd.L[i]
+        if r ∈ R⁺
+            @assert s ∈ R⁻
             w = dot(Aᵢ,vec(r))*vec(s) - dot(Aᵢ,vec(s))*vec(r)
-            v = CountedVector(w,dd)
-            if sum(abs(w)) > n*ε && 
-               !is_approx_included(R⁰,   vec(w)) && 
-               !is_approx_included(Rⁿᵉʷ, vec(w))
-                dd.num_rays += 1
-                push!(Rⁿᵉʷ, v)
-            end
+        elseif r ∈ R⁻
+            @assert s ∈ R⁺
+            w = dot(Aᵢ,vec(s))*vec(r) - dot(Aᵢ,vec(r))*vec(s)
+        else
+            error("why is this happening??")
         end
+        v = CountedVector(w,dd)
+        # if sum(abs(w)) > n*ε && 
+           # !is_approx_included(R⁰,   vec(w)) && 
+           # !is_approx_included(Rⁿᵉʷ, vec(w))
+            push!(Rⁿᵉʷ, v)
+        # end
     end
     dd.R = vcat(R⁺, R⁰, Rⁿᵉʷ)
     push!(dd.K, i)
-    cK = sort(collect(dd.K))
-    Aₖ = dd.A[cK,:]
-    # should really add a test right about here to ensure
-    # that old rays do not become adjacent...I think this 
-    # can only happen if both v,w ∈ R⁰
-    d = rank(Aₖ)
-    for s in Rⁿᵉʷ
-        # As = s.Av[cK]#Aₖ*vec(s)
-        for r in dd.R
-            r.id == s.id && continue
-            # Ar = r.Av[cK]#Aₖ*vec(r)
-            id = extrema([r.id, s.id])
-            cache_adjacency!(dd, d, r.Av[cK], s.Av[cK], id)
+    d = rank(dd.A[sort(collect(dd.K)),:])
+    for r in vcat(R⁰, Rⁿᵉʷ), s in vcat(R⁰, Rⁿᵉʷ)
+        if satisfies_cₖ(r,s)
+            conditional_edge_store!(dd, r, s, mii(r), i)
         end
     end
     nothing
@@ -147,21 +190,6 @@ function partition_rays{T<:Real}(R::Vector{CountedVector{T}}, a::Vector{T})
         end
     end
     return R⁺, R⁰, R⁻
-end
-
-isadjacent(dd, r, s) = dd.adj[extrema([r.id,s.id])]
-
-function cache_adjacency!(dd, d, Ar, As, id::(Int,Int))
-    Z = active_sets(dd, Ar, As)
-    if length(Z) < d - 2
-        val = false
-    elseif length(intersect(Z,dd.K)) ≥ d - 2
-        val = true
-    else
-        val = (rank(dd.A[sort(collect(dd.K)),:][Z,:]) == d - 2)
-    end
-    dd.adj[id] = val
-    return val
 end
 
 function active_sets(dd, Ar, As)

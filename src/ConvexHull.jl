@@ -1,6 +1,6 @@
 module ConvexHull
 
-using JuMP
+using JuMP, DataStructures
 
 export homogeneous_system, write_ine, read_ext, double_description, canonicalize!, 
        get_extrema, is_approx_included
