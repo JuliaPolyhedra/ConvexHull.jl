@@ -3,10 +3,10 @@ function write_ine(str::String, A::Matrix{Int}, b::Vector{Int})
     println(fp, "H-representation")
     println(fp, "begin")
     m, n = size(A)
-    @assert n == length(b)
-    println(fp, "$m $n integer")
+    @assert m == length(b)
+    println(fp, "$m $(n+1) integer")
     for i in 1:m
-        println(fp, join([b[i], A[i,:]], " "))
+        println(fp, join([b[i] A[i,:]], " "))
     end
     println(fp, "end")
     close(fp)
@@ -19,7 +19,7 @@ function write_ine(str::String, A::Matrix{Float64}, b::Vector{Float64})
     println(fp, "begin")
     m, n = size(A)
     @assert m == length(b)
-    println(fp, "$m $n integer")
+    println(fp, "$m $(n+1) real")
     for i in 1:m
         @printf(fp, "%E ", b[i])
         for j in 1:n
@@ -31,6 +31,25 @@ function write_ine(str::String, A::Matrix{Float64}, b::Vector{Float64})
     close(fp)
     nothing
 end
+
+function write_ext(str::String, ext::Vector)
+    fp = open(str, "w")
+    println(fp, "V-representation")
+    println(fp, "begin")
+    m = length(ext)
+    n = length(ext[1])
+    println(fp, "$m $n real")
+    for i in 1:m
+        vv = ext[i]
+        @assert length(vv) == n
+        println(fp, join(vv, " "))
+    end
+    println(fp, "end")
+    println(fp, "hull")
+    close(fp)
+    nothing
+end
+
 
 function read_ext(fname::String)
     fp = open(fname, "r")
@@ -44,11 +63,15 @@ function read_ext(fname::String)
     line = strip(readline(fp), '\n')
     (m,n,typ) = filter(x->!isempty(x), split(line, " "))
     line = strip(readline(fp), '\n')
+    elem = []
     while line != "end"
         res  = filter(x->!isempty(x), split(line, " "))
-        println("res = $res")
         nums = map(float, res)
-        elem = try convert(Vector{Int}, nums) catch nums end
+        try
+            elem = convert(Vector{Int}, nums)
+        catch
+            elem = nums
+        end
         if elem[1] == 1 # vertex
             push!(vertices, elem[2:end])
         else

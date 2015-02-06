@@ -44,9 +44,17 @@ end
 function write_ine(model::JuMP.Model, fname::String)
     A, b = homogeneous_system(model)
     try
-        write_ine(fname, convert(Matrix{Int},A), convert(Matrix{Int},b))
+        write_ine(fname, convert(Matrix{Int},A), convert(Vector{Int},b))
     catch InexactError
-        write_ine(fname, A, b)
+        try
+            write_ine(fname, convert(Matrix{Int},2A), convert(Vector{Int},2b))
+        catch InexactError
+            try
+                write_ine(fname, convert(Matrix{Int},4A), convert(Vector{Int},4b))
+            catch InexactError
+                write_ine(fname, A, b)
+            end
+        end
     end
 end
 
