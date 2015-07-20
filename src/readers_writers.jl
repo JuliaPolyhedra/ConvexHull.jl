@@ -82,3 +82,28 @@ function read_ext(fname::String)
     close(fp)
     return vertices, rays
 end
+
+function read_ine(fname::String)
+    fp = open(fname, "r")
+
+    while true
+        line = strip(readline(fp), '\n')
+        line == "begin" && break
+    end
+    line = strip(readline(fp), '\n')
+    (mm,nn,typ) = filter(x->!isempty(x), split(line, " "))
+    m,n = int(mm), int(nn)
+    line = strip(readline(fp), '\n')
+    A = Array(Float64,0,n-1)
+    b = Float64[]
+    while line != "end"
+        res  = filter(x->!isempty(x), split(line, " "))
+        elem = map(float, res)
+        push!(b, elem[1])
+        A = [A; -elem[2:end]']
+        line = strip(readline(fp), '\n')
+    end
+    @assert size(A) == (m,n-1)
+    close(fp)
+    return b, A
+end

@@ -38,17 +38,17 @@ function initial_description{T<:Real}(A::Matrix{T})
         r > n && break
     end
     cK = sort(collect(K))
-    Aₖ = A[cK,:]
-    R = Aₖ \ eye(n,n)
+    Ak = A[cK,:]
+    R = Ak \ eye(n,n)
     dd = DoubleDescription(A,CountedVector{T}[],K,Dict{(Int,Int),Bool}(),n)
-    Rₖ = [CountedVector{T}(R[:,i],dd) for i in 1:n]
-    dd.R = Rₖ
+    Rk = [CountedVector{T}(R[:,i],dd) for i in 1:n]
+    dd.R = kR
     for i in 1:n
-        # Ar = Rₖ[i].Av[cK]
+        # Ar = Rk[i].Av[cK]
         for j in (i+1):n
-            # As = Rₖ[j].Av[cK] 
-            id = extrema([Rₖ[i].id,Rₖ[j].id])
-            cache_adjacency!(dd, n, Rₖ[i].Av[cK], Rₖ[j].Av[cK], id)
+            # As = Rk[j].Av[cK] 
+            id = extrema([Rk[i].id,Rk[j].id])
+            cache_adjacency!(dd, n, Rk[i].Av[cK], Rk[j].Av[cK], id)
         end
     end
     return dd
@@ -101,8 +101,8 @@ function update!{T<:Real}(dd::DoubleDescription{T}, i)
         if isadjacent(dd,r,s)
             w = dot(Aᵢ,vec(r))*vec(s) - dot(Aᵢ,vec(s))*vec(r)
             v = CountedVector(w,dd)
-            if sum(abs(w)) > n*ε && 
-               !is_approx_included(R⁰,   vec(w)) && 
+            if sum(abs(w)) > n*ε &&
+               !is_approx_included(R⁰,   vec(w)) &&
                !is_approx_included(Rⁿᵉʷ, vec(w))
                 dd.num_rays += 1
                 push!(Rⁿᵉʷ, v)
@@ -112,16 +112,16 @@ function update!{T<:Real}(dd::DoubleDescription{T}, i)
     dd.R = vcat(R⁺, R⁰, Rⁿᵉʷ)
     push!(dd.K, i)
     cK = sort(collect(dd.K))
-    Aₖ = dd.A[cK,:]
+    Ak = dd.A[cK,:]
     # should really add a test right about here to ensure
-    # that old rays do not become adjacent...I think this 
+    # that old rays do not become adjacent...I think this
     # can only happen if both v,w ∈ R⁰
-    d = rank(Aₖ)
+    d = rank(Ak)
     for s in Rⁿᵉʷ
-        # As = s.Av[cK]#Aₖ*vec(s)
+        # As = s.Av[cK]#Ak*vec(s)
         for r in dd.R
             r.id == s.id && continue
-            # Ar = r.Av[cK]#Aₖ*vec(r)
+            # Ar = r.Av[cK]#Ak*vec(r)
             id = extrema([r.id, s.id])
             cache_adjacency!(dd, d, r.Av[cK], s.Av[cK], id)
         end
