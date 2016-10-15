@@ -2,7 +2,7 @@ type DoubleDescription{T<:Real}
     A::Matrix{T}
     R::Vector
     K::Set{Int}
-    adj::Dict{(Int,Int),Bool}
+    adj::Dict{Tuple{Int,Int},Bool}
     num_rays::Int
 end
 
@@ -40,9 +40,9 @@ function initial_description{T<:Real}(A::Matrix{T})
     cK = sort(collect(K))
     Ak = A[cK,:]
     R = Ak \ eye(n,n)
-    dd = DoubleDescription(A,CountedVector{T}[],K,Dict{(Int,Int),Bool}(),n)
+    dd = DoubleDescription(A,CountedVector{T}[],K,Dict{Tuple{Int,Int},Bool}(),n)
     Rk = [CountedVector{T}(R[:,i],dd) for i in 1:n]
-    dd.R = kR
+    dd.R = Rk
     for i in 1:n
         # Ar = Rk[i].Av[cK]
         for j in (i+1):n
@@ -151,7 +151,7 @@ end
 
 isadjacent(dd, r, s) = dd.adj[extrema([r.id,s.id])]
 
-function cache_adjacency!(dd, d, Ar, As, id::(Int,Int))
+function cache_adjacency!(dd, d, Ar, As, id::Tuple{Int,Int})
     Z = active_sets(dd, Ar, As)
     if length(Z) < d - 2
         val = false

@@ -3,7 +3,7 @@ using ConvexHull, JuMP, Base.Test
 # A simple square
 let
     m = Model()
-    @defVar(m, 0 ≤ x[1:2] ≤ 1)
+    @variable(m, 0 ≤ x[1:2] ≤ 1)
 
     v, r = get_extrema(m)
 
@@ -19,7 +19,7 @@ end
 for N in 2:11
     let
         m = Model()
-        @defVar(m, 0 ≤ x[1:N] ≤ 1)
+        @variable(m, 0 ≤ x[1:N] ≤ 1)
 
         v, r = get_extrema(m)
 
@@ -41,8 +41,8 @@ for N in 1:3:51
     let
         N = 6
         m = Model()
-        @defVar(m, x[1:N] >= 0)
-        @addConstraint(m, sum{x[i], i=1:N} == 1)
+        @variable(m, x[1:N] >= 0)
+        @constraint(m, sum{x[i], i=1:N} == 1)
 
         v, r = get_extrema(m)
 
@@ -61,8 +61,8 @@ end
 for N in 1:3:39
     let
         m = Model()
-        @defVar(m, x[1:N] >= 0)
-        @addConstraint(m, sum{x[i], i=1:N} ≤ 1)
+        @variable(m, x[1:N] >= 0)
+        @constraint(m, sum{x[i], i=1:N} ≤ 1)
 
         v, r = get_extrema(m)
 
@@ -81,9 +81,9 @@ end
 # The ex1 example
 let
     m = Model()
-    @defVar(m, x)
-    @defVar(m, y)
-    @addConstraints(m, begin
+    @variable(m, x)
+    @variable(m, y)
+    @constraints(m, begin
         12 + 2x - y ≥ 0
         -6 - x + 2y ≥ 0
         -3 + x + y ≥ 0
@@ -111,8 +111,8 @@ end
 for N in 2:8
     let
         m = Model()
-        @defVar(m, 0 ≤ x[1:N] ≤ 1)
-        @addConstraint(m, x[1] ≥ 2)
+        @variable(m, 0 ≤ x[1:N] ≤ 1)
+        @constraint(m, x[1] ≥ 2)
 
         r, v = get_extrema(m)
 
@@ -124,8 +124,8 @@ end
 # non full-dimensional 
 let
     m = Model()
-    @defVar(m, x[1:3] ≥ 1)
-    @addConstraints(m, begin
+    @variable(m, x[1:3] ≥ 1)
+    @constraints(m, begin
         x[1] == 2
         x[2] ≤ 2
     end)
@@ -142,12 +142,12 @@ for N in 2:9
     let
         m = Model()
 
-        @defVar(m, x[1:N])
+        @variable(m, x[1:N])
 
         for k in 0:N
             for S in combinations(1:N, k)
                 Sᶜ = setdiff(1:N, S)
-                @addConstraint(m, sum{x[i], i in S} - sum{x[i], i in Sᶜ} ≤ 1)
+                @constraint(m, sum{x[i], i in S} - sum{x[i], i in Sᶜ} ≤ 1)
             end
         end
 
