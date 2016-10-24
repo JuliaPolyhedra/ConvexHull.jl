@@ -6,6 +6,26 @@ type DoubleDescription{T<:Real}
     num_rays::Int
 end
 
+function double_description{N,T}(ine::LiftedHRepresentation{N,T})
+    # FIXME add support for linearity
+    dd = double_description(ine.A)
+    R = Matrix{T}(length(dd.R), N+1)
+    for (i,r) in enumerate(dd.R)
+        R[i,:] = r.v
+    end
+    LiftedVRepresentation{N,T}(R)
+end
+
+function double_description{N,T}(ext::LiftedVRepresentation{N,T})
+    # FIXME add support for linearity
+    dd = double_description(ext.R)
+    A = Matrix{T}(length(dd.R), N+1)
+    for (i,r) in enumerate(dd.R)
+        A[i,:] = r.v
+    end
+    LiftedHRepresentation{N,T}(A)
+end
+
 type CountedVector{T<:Real}
     v::Vector{T}
     Av::Vector{T}
@@ -39,14 +59,19 @@ function initial_description{T<:Real}(A::Matrix{T})
     end
     cK = sort(collect(K))
     Ak = A[cK,:]
-    R = Ak \ eye(n,n)
+    if eltype(Ak) <: AbstractFloat
+        R = Ak \ eye(n,n)
+    else
+        # Ak \ eye(n,n) creates BigFloat from Rational{BigInt} while inv keeps Rational{BigInt}
+        R = inv(Ak)
+    end
     dd = DoubleDescription(A,CountedVector{T}[],K,Dict{Tuple{Int,Int},Bool}(),n)
     Rk = [CountedVector{T}(R[:,i],dd) for i in 1:n]
     dd.R = Rk
     for i in 1:n
         # Ar = Rk[i].Av[cK]
         for j in (i+1):n
-            # As = Rk[j].Av[cK] 
+            # As = Rk[j].Av[cK]
             id = extrema([Rk[i].id,Rk[j].id])
             cache_adjacency!(dd, n, Rk[i].Av[cK], Rk[j].Av[cK], id)
         end
@@ -116,6 +141,8 @@ function update!{T<:Real}(dd::DoubleDescription{T}, i)
     # should really add a test right about here to ensure
     # that old rays do not become adjacent...I think this
     # can only happen if both v,w ∈ R⁰
+
+    # If eltype(Ak) is Rational{BigInt}, LinearAlgebra.jl is needed
     d = rank(Ak)
     for s in Rⁿᵉʷ
         # As = s.Av[cK]#Ak*vec(s)

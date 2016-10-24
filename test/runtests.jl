@@ -1,11 +1,3 @@
-using ConvexHull, JuMP, FactCheck
+using ConvexHull, JuMP, Base.Test
 
-include("simplesquare.jl")
-include("hypercube.jl")
-include("simplex.jl")
-include("ex1.jl")
-include("infeasible.jl")
-include("nonfulldimensional.jl")
-include("crosspolytope.jl")
-
-FactCheck.exitstatus()
+include("polyhedron.jl")
