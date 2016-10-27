@@ -15,11 +15,11 @@ function homogeneous_system(model::JuMP.Model)
     b = Float64[]
     for i in 1:m
         if !isinf(lb[i])
-            C = [C, A[i,:]]
+            C = [C; A[i,:]']
             push!(b, -lb[i])
         end
         if !isinf(ub[i])
-            C = [C; -A[i,:]]
+            C = [C; -A[i,:]']
             push!(b, ub[i])
         end
     end
@@ -29,11 +29,11 @@ function homogeneous_system(model::JuMP.Model)
     d = Float64[]
     for i in 1:n
         if !isinf(l[i])
-            B = [B; F[i,:]]
+            B = [B; F[i,:]']
             push!(d, -l[i])
         end
         if !isinf(u[i])
-            B = [B; -F[i,:]]
+            B = [B; -F[i,:]']
             push!(d, u[i])
         end
     end
