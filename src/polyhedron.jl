@@ -22,13 +22,13 @@ type ConvexHullPolyhedron{N, T} <: Polyhedron{N, T}
     noredundantgenerator::Bool
 
     function ConvexHullPolyhedron(ine::HRepresentation{N, T}, ext::VRepresentation{N, T}, hld::Bool, vld::Bool, nri::Bool, nrg::Bool)
-        new(ine, nothing, ext, nothing, hld, vld, nri, nrg)
+        new(ine, Nullable{LiftedHRepresentation{N, T}}(), ext, Nullable{LiftedVRepresentation{N, T}}(), hld, vld, nri, nrg)
     end
     function ConvexHullPolyhedron(ine::HRepresentation{N, T})
-        new(ine, nothing, nothing, nothing, false, false, false, false)
+        new(ine, Nullable{LiftedHRepresentation{N, T}}(), Nullable{VRepresentation{N, T}}(), Nullable{LiftedVRepresentation{N, T}}(), false, false, false, false)
     end
     function ConvexHullPolyhedron(ext::VRepresentation{N, T})
-        new(nothing, nothing, ext, nothing, false, false, false, false)
+        new(Nullable{HRepresentation{N, T}}(), Nullable{LiftedHRepresentation{N, T}}(), ext, Nullable{LiftedVRepresentation{N, T}}(), false, false, false, false)
     end
 end
 
@@ -36,8 +36,8 @@ end
 # saying false normally do not give troubles
 decomposedhfast{N, T}(::Type{ConvexHullPolyhedron{N, T}}) = false
 decomposedvfast{N, T}(::Type{ConvexHullPolyhedron{N, T}}) = false
-decomposedhfast{N, T}(p::ConvexHullPolyhedron{N, T}) = decomposedhfast(ConvexHullPolyhedron{N, T})
-decomposedvfast{N, T}(p::ConvexHullPolyhedron{N, T}) = decomposedvfast(ConvexHullPolyhedron{N, T})
+decomposedhfast{N, T}(::ConvexHullPolyhedron{N, T}) = decomposedhfast(ConvexHullPolyhedron{N, T})
+decomposedvfast{N, T}(::ConvexHullPolyhedron{N, T}) = decomposedvfast(ConvexHullPolyhedron{N, T})
 
 # Helpers
 function getine(p::ConvexHullPolyhedron)
