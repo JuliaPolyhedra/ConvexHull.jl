@@ -87,7 +87,6 @@ function double_description{T<:Real}(A::Matrix{T})
     Kᶜ = setdiff(1:m, dd.K)
     while !isempty(Kᶜ)
         i = pop!(Kᶜ)
-        println("iteration $(length(dd.K)+1) of $m")
         # length(dd.K) == 31 && break
         update!(dd, i)
     end
