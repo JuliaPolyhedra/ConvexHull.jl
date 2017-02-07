@@ -7,6 +7,9 @@ type DoubleDescription{T<:Real}
 end
 
 function double_description{N,T}(ine::LiftedHRepresentation{N,T})
+    if !isempty(ine.linset)
+        error("Linearity currently unsupported by ConvexHull.")
+    end
     # FIXME add support for linearity
     dd = double_description(ine.A)
     R = Matrix{T}(length(dd.R), N+1)
@@ -17,6 +20,9 @@ function double_description{N,T}(ine::LiftedHRepresentation{N,T})
 end
 
 function double_description{N,T}(ext::LiftedVRepresentation{N,T})
+    if !isempty(ext.Vlinset) || !isempty(ext.Rlinset)
+        error("Linearity currently unsupported by ConvexHull.")
+    end
     # FIXME add support for linearity
     dd = double_description(ext.R)
     A = Matrix{T}(length(dd.R), N+1)
