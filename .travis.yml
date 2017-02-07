@@ -15,7 +15,6 @@ addons:
         - libgmp-dev
         - libglpk-dev
 before_script:
-    - julia -e 'Pkg.clone("https://github.com/blegat/Polyhedra.jl.git")'
     - julia -e 'Pkg.clone("https://github.com/andreasnoack/LinearAlgebra.jl.git")'
 script:
     - if [[ -a .git/shallow ]]; then git fetch --unshallow; fi
