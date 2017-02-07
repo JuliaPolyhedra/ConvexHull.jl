@@ -22,3 +22,4 @@ script:
     - julia -e 'Pkg.test("ConvexHull")'
 after_success:
     - echo $TRAVIS_JULIA_VERSION
+    - julia -e 'Pkg.add("Coverage"); cd(Pkg.dir("ConvexHull")); using Coverage; Coveralls.submit(process_folder()); Codecov.submit(process_folder())'
