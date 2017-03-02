@@ -110,8 +110,8 @@ function polyhedron{N}(repit::Union{Representation{N},HRepIterator{N},VRepIterat
     ConvexHullPolyhedron{N, T}(repit)
 end
 
-getlibraryfor{T<:Real}(::ConvexHullPolyhedron, ::Type{T}) = ConvexHullLib(:exact)
-getlibraryfor{T<:AbstractFloat}(::ConvexHullPolyhedron, ::Type{T}) = ConvexHullLib(:float)
+getlibraryfor{T<:Real}(::ConvexHullPolyhedron, n::Int, ::Type{T}) = ConvexHullLib(:exact)
+getlibraryfor{T<:AbstractFloat}(::ConvexHullPolyhedron, n::Int, ::Type{T}) = ConvexHullLib(:float)
 
 (::Type{ConvexHullPolyhedron{N, T}}){N, T}(it::HRepIterator{N,T}) = ConvexHullPolyhedron{N, T}(LiftedHRepresentation{N,T}(it))
 (::Type{ConvexHullPolyhedron{N, T}}){N, T}(it::VRepIterator{N,T}) = ConvexHullPolyhedron{N, T}(LiftedVRepresentation{N,T}(it))
