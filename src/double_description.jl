@@ -20,7 +20,7 @@ function double_description{N,T}(ine::LiftedHRepresentation{N,T})
 end
 
 function double_description{N,T}(ext::LiftedVRepresentation{N,T})
-    if !isempty(ext.Vlinset) || !isempty(ext.Rlinset)
+    if !isempty(ext.linset)
         error("Linearity currently unsupported by ConvexHull.")
     end
     # FIXME add support for linearity
@@ -38,10 +38,10 @@ type CountedVector{T<:Real}
     dd::DoubleDescription{T}
     id::Int
 
-    function CountedVector(v::Vector{T},dd::DoubleDescription{T})
+    function CountedVector{T}(v::Vector{T}, dd::DoubleDescription{T}) where T
         dd.num_rays += 1
         canonicalize!(v)
-        new(v,dd.A*v,dd,dd.num_rays)
+        new{T}(v, dd.A*v, dd, dd.num_rays)
     end
 end
 CountedVector{T<:Real}(v::Vector{T},dd::DoubleDescription{T}) = CountedVector{T}(v,dd)
@@ -113,7 +113,7 @@ function canonicalize!{T<:Real}(v::Vector{T})
     n = length(v)
     val = abs(v[1])
     if val < ε
-        val = abs(v[findfirst(abs(v) .> ε)])
+        val = abs(v[findfirst(abs.(v) .> ε)])
     end
     for i in 1:n
         v[i] = v[i] / val
@@ -131,7 +131,7 @@ function update!{T<:Real}(dd::DoubleDescription{T}, i)
         if isadjacent(dd,r,s)
             w = dot(Aᵢ,vec(r))*vec(s) - dot(Aᵢ,vec(s))*vec(r)
             v = CountedVector(w,dd)
-            if sum(abs(w)) > n*ε &&
+            if sum(abs.(w)) > n*ε &&
                !is_approx_included(R⁰,   vec(w)) &&
                !is_approx_included(Rⁿᵉʷ, vec(w))
                 dd.num_rays += 1
@@ -165,7 +165,7 @@ function partition_rays{T<:Real}(R::Vector{CountedVector{T}}, a::Vector{T})
     R⁺, R⁰, R⁻ = CountedVector{T}[], CountedVector{T}[], CountedVector{T}[]
     n = length(a)
     for r in R
-        if sum(abs(vec(r))) < n*ε
+        if sum(abs.(vec(r))) < n*ε
             println("have a zero vector!")
             continue
         end

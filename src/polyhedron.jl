@@ -1,9 +1,9 @@
-export ConvexHullLib
+export ConvexHullLibrary
 
-type ConvexHullLib <: PolyhedraLibrary
+type ConvexHullLibrary <: PolyhedraLibrary
     precision::Symbol
 
-    function ConvexHullLib(precision::Symbol=:float)
+    function ConvexHullLibrary(precision::Symbol=:float)
         if !(precision in [:float, :exact])
             error("Invalid precision, it should be :float or :exact")
         end
@@ -11,33 +11,48 @@ type ConvexHullLib <: PolyhedraLibrary
     end
 end
 
+Polyhedra.similar_library(l::ConvexHullLibrary, ::FullDim, ::Type{<:AbstractFloat}) = ConvexHullLibrary(:float)
+Polyhedra.similar_library(l::ConvexHullLibrary, ::FullDim, ::Type) = ConvexHullLibrary(:exact)
+
 type ConvexHullPolyhedron{N, T} <: Polyhedron{N, T}
     ine::Nullable{HRepresentation{N, T}}
     inel::Nullable{LiftedHRepresentation{N, T}}
     ext::Nullable{VRepresentation{N, T}}
     extl::Nullable{LiftedVRepresentation{N, T}}
-    hlinearitydetected::Bool
-    vlinearitydetected::Bool
     noredundantinequality::Bool
     noredundantgenerator::Bool
 
-    function ConvexHullPolyhedron(ine::HRepresentation{N, T}, ext::VRepresentation{N, T}, hld::Bool, vld::Bool, nri::Bool, nrg::Bool)
-        new(ine, Nullable{LiftedHRepresentation{N, T}}(), ext, Nullable{LiftedVRepresentation{N, T}}(), hld, vld, nri, nrg)
+    function ConvexHullPolyhedron{N, T}(ine, ext, nri::Bool, nrg::Bool) where {N, T}
+        new(ine, Nullable{LiftedHRepresentation{N, T}}(), ext, Nullable{LiftedVRepresentation{N, T}}(), nri, nrg)
     end
-    function ConvexHullPolyhedron(ine::HRepresentation{N, T})
-        new(ine, Nullable{LiftedHRepresentation{N, T}}(), Nullable{VRepresentation{N, T}}(), Nullable{LiftedVRepresentation{N, T}}(), false, false, false, false)
+    function ConvexHullPolyhedron{N, T}(ine::HRepresentation{N, T}) where {N, T}
+        new(ine, Nullable{LiftedHRepresentation{N, T}}(), Nullable{VRepresentation{N, T}}(), Nullable{LiftedVRepresentation{N, T}}(), false, false)
     end
-    function ConvexHullPolyhedron(ext::VRepresentation{N, T})
-        new(Nullable{HRepresentation{N, T}}(), Nullable{LiftedHRepresentation{N, T}}(), ext, Nullable{LiftedVRepresentation{N, T}}(), false, false, false, false)
+    function ConvexHullPolyhedron{N, T}(ext::VRepresentation{N, T}) where {N, T}
+        new(Nullable{HRepresentation{N, T}}(), Nullable{LiftedHRepresentation{N, T}}(), ext, Nullable{LiftedVRepresentation{N, T}}(), false, false)
     end
 end
 
-# ine may decompose fast but if ine is nothing I do not want to ask to compute it to see the type it is
-# saying false normally do not give troubles
-decomposedhfast{N, T}(::Type{ConvexHullPolyhedron{N, T}}) = false
-decomposedvfast{N, T}(::Type{ConvexHullPolyhedron{N, T}}) = false
-decomposedhfast{N, T}(::ConvexHullPolyhedron{N, T}) = decomposedhfast(ConvexHullPolyhedron{N, T})
-decomposedvfast{N, T}(::ConvexHullPolyhedron{N, T}) = decomposedvfast(ConvexHullPolyhedron{N, T})
+Polyhedra.library(p::ConvexHullPolyhedron{N, <:AbstractFloat}) where N = ConvexHullLibrary(:float)
+Polyhedra.library(p::ConvexHullPolyhedron) = ConvexHullLibrary(:exact)
+Polyhedra.similar_type(::Type{<:ConvexHullPolyhedron}, ::FullDim{N}, ::Type{T}) where {N, T} = ConvexHullPolyhedron{N, T}
+
+function Polyhedra.arraytype(p::ConvexHullPolyhedron)
+    if isnull(p.ine) && !isnull(p.inel)
+        p.ine = get(p.inel)
+    end
+    if isnull(p.ext) && !isnull(p.extl)
+        p.ext = get(p.extl)
+    end
+    if isnull(p.ine)
+        Polyhedra.arraytype(get(p.ext))
+    elseif isnull(p.ext)
+        Polyhedra.arraytype(get(p.ine))
+    else
+        @assert Polyhedra.arraytype(get(p.ine)) == Polyhedra.arraytype(get(p.ext))
+        Polyhedra.arraytype(get(p.ine))
+    end
+end
 
 # Helpers
 function getine(p::ConvexHullPolyhedron)
@@ -82,20 +97,9 @@ function clearfield!(p::ConvexHullPolyhedron)
     p.inel = nothing
     p.ext = nothing
     p.extl = nothing
-    hlinearitydetected = false
-    vlinearitydetected = false
-    noredundantinequality = false
-    noredundantgenerator = false
+    p.noredundantinequality = false
+    p.noredundantgenerator = false
 end
-function updateine!{N,T}(p::ConvexHullPolyhedron{N}, ine::HRepresentation{N, T})
-    clearfield!(p)
-    p.ine = ine
-end
-function updateext!{N,T}(p::ConvexHullPolyhedron{N}, ext::VRepresentation{N, T})
-    clearfield!(p)
-    p.ext = ext
-end
-
 
 # Implementation of Polyhedron's mandatory interface
 function polytypeforprecision(precision::Symbol)
@@ -105,34 +109,15 @@ function polytypeforprecision(precision::Symbol)
   precision == :float ? Float64 : Rational{BigInt}
 end
 
-function polyhedron{N}(repit::Union{Representation{N},HRepIterator{N},VRepIterator{N}}, lib::ConvexHullLib)
+function Polyhedra.polyhedron(rep::Representation{N}, lib::ConvexHullLibrary) where N
     T = polytypeforprecision(lib.precision)
-    ConvexHullPolyhedron{N, T}(repit)
+    ConvexHullPolyhedron{N, T}(rep)
 end
 
-getlibraryfor{T<:Real}(::ConvexHullPolyhedron, n::Int, ::Type{T}) = ConvexHullLib(:exact)
-getlibraryfor{T<:AbstractFloat}(::ConvexHullPolyhedron, n::Int, ::Type{T}) = ConvexHullLib(:float)
+ConvexHullPolyhedron{N, T}(it::Polyhedra.HIt{N}...) where {N, T} = ConvexHullPolyhedron{N, T}(LiftedHRepresentation{N, T}(it...))
+ConvexHullPolyhedron{N, T}(it::Polyhedra.VIt{N}...) where {N, T} = ConvexHullPolyhedron{N, T}(LiftedVRepresentation{N, T}(it...))
 
-(::Type{ConvexHullPolyhedron{N, T}}){N, T}(it::HRepIterator{N,T}) = ConvexHullPolyhedron{N, T}(LiftedHRepresentation{N,T}(it))
-(::Type{ConvexHullPolyhedron{N, T}}){N, T}(it::VRepIterator{N,T}) = ConvexHullPolyhedron{N, T}(LiftedVRepresentation{N,T}(it))
-
-function (::Type{ConvexHullPolyhedron{N, T}}){N, T}(; eqs=nothing, ineqs=nothing, points=nothing, rays=nothing)
-    noth = eqs === nothing && ineqs === nothing
-    notv = points === nothing && rays === nothing
-    if noth && notv
-        error("ConvexHullPolyhedron should have at least one iterator to be built")
-    end
-    if !noth && !notv
-        error("ConvexHullPolyhedron constructed with a combination of eqs/ineqs with points/rays")
-    end
-    if notv
-        ConvexHullPolyhedron{N, T}(LiftedHRepresentation{N, T}(eqs=eqs, ineqs=ineqs))
-    else
-        ConvexHullPolyhedron{N, T}(LiftedVRepresentation{N, T}(points=points, rays=rays))
-    end
-end
-
-function Base.copy{N}(p::ConvexHullPolyhedron{N})
+function Base.copy(p::ConvexHullPolyhedron{N, T}) where {N, T}
     ine = nothing
     if !isnull(p.ine)
         ine = copy(get(p.ine))
@@ -141,49 +126,34 @@ function Base.copy{N}(p::ConvexHullPolyhedron{N})
     if !isnull(p.ext)
         ext = copy(get(p.ext))
     end
-    ConvexHullPolyhedron{N}(ine, ext, p.hlinearitydetected, p.vlinearitydetected, p.noredundantinequality, p.noredundantgenerator)
+    ConvexHullPolyhedron{N, T}(ine, ext, p.noredundantinequality, p.noredundantgenerator)
 end
-function Base.push!{N, T}(p::ConvexHullPolyhedron{N, T}, ine::HRepresentation{N})
-    updateine!(p, intersect(getine(p), changeeltype(ine, T)))
-end
-function Base.push!{N, T}(p::ConvexHullPolyhedron{N, T}, ext::VRepresentation{N})
-    updateext!(p, getext(p) + changeeltype(ext, T))
-end
-function hrepiscomputed(p::ConvexHullPolyhedron)
+function Polyhedra.hrepiscomputed(p::ConvexHullPolyhedron)
     !isnull(p.ine)
 end
-function hrep(p::ConvexHullPolyhedron)
-    copy(getine(p))
+function Polyhedra.hrep(p::ConvexHullPolyhedron)
+    getine(p)
 end
-function vrepiscomputed(p::ConvexHullPolyhedron)
+function Polyhedra.vrepiscomputed(p::ConvexHullPolyhedron)
     !isnull(p.ext)
 end
-function vrep(p::ConvexHullPolyhedron)
-    copy(getext(p))
-end
-function detecthlinearities!(p::ConvexHullPolyhedron)
-    warn("detecthlinearities! not supported yet")
-end
-function detectvlinearities!(p::ConvexHullPolyhedron)
-    warn("detectvlinearities! not supported yet")
-end
-function removehredundancy!(p::ConvexHullPolyhedron)
-    warn("removehredundancy! not supported yet")
-end
-function removevredundancy!(p::ConvexHullPolyhedron)
-    warn("removevredundancy! not supported yet")
+function Polyhedra.vrep(p::ConvexHullPolyhedron)
+    getext(p)
 end
 
-for f in [:hashreps, :nhreps, :starthrep, :hasineqs, :nineqs, :startineq, :haseqs, :neqs, :starteq]
-    @eval $f(p::ConvexHullPolyhedron) = $f(getine(p))
+function Polyhedra.sethrep!(p::ConvexHullPolyhedron{N}, h::HRepresentation{N}) where N
+    p.ine = h
+    p.inel = nothing
 end
-for f in [:donehrep, :nexthrep, :doneineq, :nextineq, :doneeq, :nexteq]
-    @eval $f(p::ConvexHullPolyhedron, state) = $f(getine(p), state)
+function Polyhedra.setvrep!(p::ConvexHullPolyhedron{N}, v::VRepresentation{N}) where N
+    p.ext = v
+    p.extl = nothing
 end
-
-for f in [:hasvreps, :nvreps, :startvrep, :haspoints, :npoints, :startpoint, :hasrays, :nrays, :startray]
-    @eval $f(p::ConvexHullPolyhedron) = $f(getext(p))
+function resethrep!(p::ConvexHullPolyhedron{N}, h::HRepresentation{N}) where N
+    clearfield!(p)
+    p.ine = h
 end
-for f in [:donevrep, :nextvrep, :donepoint, :nextpoint, :doneray, :nextray]
-    @eval $f(p::ConvexHullPolyhedron, state) = $f(getext(p), state)
+function resetvrep!(p::ConvexHullPolyhedron{N}, v::VRepresentation{N}) where N
+    clearfield!(p)
+    p.ext = v
 end

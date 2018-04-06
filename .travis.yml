@@ -3,7 +3,7 @@ os:
     - linux
     - osx
 julia:
-    - 0.5
+    - 0.6
     - nightly
 notifications:
     email: false
@@ -16,6 +16,7 @@ addons:
         - libglpk-dev
 before_script:
     - julia -e 'Pkg.clone("https://github.com/andreasnoack/LinearAlgebra.jl.git")'
+    - julia -e 'Pkg.clone("https://github.com/JuliaPolyhedra/Polyhedra.jl.git")'
 script:
     - if [[ -a .git/shallow ]]; then git fetch --unshallow; fi
     - julia -e 'Pkg.clone(pwd())'
