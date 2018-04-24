@@ -1,4 +1,4 @@
-type DoubleDescription{T<:Real}
+mutable struct DoubleDescription{T<:Real}
     A::Matrix{T}
     R::Vector
     K::Set{Int}
@@ -6,7 +6,7 @@ type DoubleDescription{T<:Real}
     num_rays::Int
 end
 
-function double_description{N,T}(ine::LiftedHRepresentation{N,T})
+function double_description(ine::LiftedHRepresentation{N,T}) where {N,T}
     if !isempty(ine.linset)
         error("Linearity currently unsupported by ConvexHull.")
     end
@@ -19,7 +19,7 @@ function double_description{N,T}(ine::LiftedHRepresentation{N,T})
     LiftedVRepresentation{N,T}(R)
 end
 
-function double_description{N,T}(ext::LiftedVRepresentation{N,T})
+function double_description(ext::LiftedVRepresentation{N,T}) where {N,T}
     if !isempty(ext.linset)
         error("Linearity currently unsupported by ConvexHull.")
     end
@@ -32,7 +32,7 @@ function double_description{N,T}(ext::LiftedVRepresentation{N,T})
     LiftedHRepresentation{N,T}(A)
 end
 
-type CountedVector{T<:Real}
+mutable struct CountedVector{T<:Real}
     v::Vector{T}
     Av::Vector{T}
     dd::DoubleDescription{T}
@@ -44,11 +44,11 @@ type CountedVector{T<:Real}
         new{T}(v, dd.A*v, dd, dd.num_rays)
     end
 end
-CountedVector{T<:Real}(v::Vector{T},dd::DoubleDescription{T}) = CountedVector{T}(v,dd)
+CountedVector(v::Vector{T},dd::DoubleDescription{T}) where {T<:Real} = CountedVector{T}(v,dd)
 
 Base.vec(c::CountedVector) = c.v
 
-function initial_description{T<:Real}(A::Matrix{T})
+function initial_description(A::Matrix{T}) where T<:Real
     m,n = size(A)
     B = rref(A')
     # find pivots
@@ -85,7 +85,7 @@ function initial_description{T<:Real}(A::Matrix{T})
     return dd
 end
 
-function double_description{T<:Real}(A::Matrix{T})
+function double_description(A::Matrix{T}) where T<:Real
     A = [zeros(T,1,size(A,2)); A]
     A[1,1] = one(T)
     m, n = size(A)
@@ -109,7 +109,7 @@ function is_approx_included(haystack, needle)
     return false
 end
 
-function canonicalize!{T<:Real}(v::Vector{T})
+function canonicalize!(v::Vector{T}) where T<:Real
     n = length(v)
     val = abs(v[1])
     if val < ε
@@ -122,7 +122,7 @@ function canonicalize!{T<:Real}(v::Vector{T})
 end
 
 # use Lemma 8 from Fukuda (1996) to update the double description
-function update!{T<:Real}(dd::DoubleDescription{T}, i)
+function update!(dd::DoubleDescription{T}, i) where T<:Real
     m, n = size(dd.A)
     Aᵢ = reshape(dd.A[i,:], (n,))
     Rⁿᵉʷ = CountedVector{T}[]
@@ -161,7 +161,7 @@ function update!{T<:Real}(dd::DoubleDescription{T}, i)
     nothing
 end
 
-function partition_rays{T<:Real}(R::Vector{CountedVector{T}}, a::Vector{T})
+function partition_rays(R::Vector{CountedVector{T}}, a::Vector{T}) where T<:Real
     R⁺, R⁰, R⁻ = CountedVector{T}[], CountedVector{T}[], CountedVector{T}[]
     n = length(a)
     for r in R
