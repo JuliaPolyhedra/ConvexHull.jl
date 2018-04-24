@@ -1,6 +1,6 @@
 export ConvexHullLibrary
 
-type ConvexHullLibrary <: PolyhedraLibrary
+mutable struct ConvexHullLibrary <: PolyhedraLibrary
     precision::Symbol
 
     function ConvexHullLibrary(precision::Symbol=:float)
@@ -14,7 +14,7 @@ end
 Polyhedra.similar_library(l::ConvexHullLibrary, ::FullDim, ::Type{<:AbstractFloat}) = ConvexHullLibrary(:float)
 Polyhedra.similar_library(l::ConvexHullLibrary, ::FullDim, ::Type) = ConvexHullLibrary(:exact)
 
-type ConvexHullPolyhedron{N, T} <: Polyhedron{N, T}
+mutable struct ConvexHullPolyhedron{N, T} <: Polyhedron{N, T}
     ine::Nullable{HRepresentation{N, T}}
     inel::Nullable{LiftedHRepresentation{N, T}}
     ext::Nullable{VRepresentation{N, T}}

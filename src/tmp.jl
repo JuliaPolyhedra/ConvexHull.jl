@@ -1,4 +1,4 @@
-function smaller_initial_description{T<:Real}(A::Matrix{T})
+function smaller_initial_description(A::Matrix{T}) where T<:Real
     K = Set{Int}(1)
     Aₖ = A[1,:]
     m, n = size(A)
