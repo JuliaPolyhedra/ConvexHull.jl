@@ -37,7 +37,7 @@ Polyhedra.library(p::ConvexHullPolyhedron{<:AbstractFloat}) = ConvexHullLibrary(
 Polyhedra.library(p::ConvexHullPolyhedron) = ConvexHullLibrary(:exact)
 Polyhedra.similar_type(::Type{<:ConvexHullPolyhedron}, ::Polyhedra.FullDim, ::Type{T}) where {T} = ConvexHullPolyhedron{T}
 
-function Polyhedra.arraytype(p::ConvexHullPolyhedron)
+function Polyhedra.vectortype(p::ConvexHullPolyhedron)
     if isnothing(p.ine) && !isnothing(p.inel)
         p.ine = p.inel
     end
@@ -45,12 +45,12 @@ function Polyhedra.arraytype(p::ConvexHullPolyhedron)
         p.ext = p.extl
     end
     if isnothing(p.ine)
-        Polyhedra.arraytype(p.ext)
+        Polyhedra.vectortype(p.ext)
     elseif isnothing(p.ext)
-        Polyhedra.arraytype(p.ine)
+        Polyhedra.vectortype(p.ine)
     else
-        @assert Polyhedra.arraytype(p.ine) == Polyhedra.arraytype(p.ext)
-        Polyhedra.arraytype(p.ine)
+        @assert Polyhedra.vectortype(p.ine) == Polyhedra.vectortype(p.ext)
+        Polyhedra.vectortype(p.ine)
     end
 end
 
