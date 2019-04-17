@@ -109,15 +109,15 @@ function polytypeforprecision(precision::Symbol)
   precision == :float ? Float64 : Rational{BigInt}
 end
 
-function Polyhedra.polyhedron(rep::Representation{N}, lib::ConvexHullLibrary) where N
+function Polyhedra.polyhedron(rep::Representation, lib::ConvexHullLibrary)
     T = polytypeforprecision(lib.precision)
-    ConvexHullPolyhedron{N, T}(rep)
+    ConvexHullPolyhedron{T}(rep)
 end
 
-ConvexHullPolyhedron{N, T}(it::Polyhedra.HIt{N}...) where {N, T} = ConvexHullPolyhedron{N, T}(LiftedHRepresentation{N, T}(it...))
-ConvexHullPolyhedron{N, T}(it::Polyhedra.VIt{N}...) where {N, T} = ConvexHullPolyhedron{N, T}(LiftedVRepresentation{N, T}(it...))
+ConvexHullPolyhedron{T}(it::Polyhedra.HIt...) where {T} = ConvexHullPolyhedron{T}(LiftedHRepresentation{T}(it...))
+ConvexHullPolyhedron{T}(it::Polyhedra.VIt...) where {T} = ConvexHullPolyhedron{T}(LiftedVRepresentation{T}(it...))
 
-function Base.copy(p::ConvexHullPolyhedron{N, T}) where {N, T}
+function Base.copy(p::ConvexHullPolyhedron{T}) where {T}
     ine = nothing
     if !isnothing(p.ine)
         ine = copy(get(p.ine))
@@ -126,7 +126,7 @@ function Base.copy(p::ConvexHullPolyhedron{N, T}) where {N, T}
     if !isnothing(p.ext)
         ext = copy(get(p.ext))
     end
-    ConvexHullPolyhedron{N, T}(ine, ext, p.noredundantinequality, p.noredundantgenerator)
+    ConvexHullPolyhedron{T}(ine, ext, p.noredundantinequality, p.noredundantgenerator)
 end
 function Polyhedra.hrepiscomputed(p::ConvexHullPolyhedron)
     !isnothing(p.ine)
@@ -141,19 +141,19 @@ function Polyhedra.vrep(p::ConvexHullPolyhedron)
     getext(p)
 end
 
-function Polyhedra.sethrep!(p::ConvexHullPolyhedron{N}, h::HRepresentation{N}) where N
+function Polyhedra.sethrep!(p::ConvexHullPolyhedron, h::HRepresentation)
     p.ine = h
     p.inel = nothing
 end
-function Polyhedra.setvrep!(p::ConvexHullPolyhedron{N}, v::VRepresentation{N}) where N
+function Polyhedra.setvrep!(p::ConvexHullPolyhedron, v::VRepresentation)
     p.ext = v
     p.extl = nothing
 end
-function resethrep!(p::ConvexHullPolyhedron{N}, h::HRepresentation{N}) where N
+function resethrep!(p::ConvexHullPolyhedron, h::HRepresentation)
     clearfield!(p)
     p.ine = h
 end
-function resetvrep!(p::ConvexHullPolyhedron{N}, v::VRepresentation{N}) where N
+function resetvrep!(p::ConvexHullPolyhedron, v::VRepresentation)
     clearfield!(p)
     p.ext = v
 end
