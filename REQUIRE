@@ -1,5 +1,5 @@
-julia 0.6
-LinearAlgebra
+julia 0.7
 RowEchelon
-Combinatorics
-Polyhedra 0.3 0.4
+GenericLinearAlgebra
+Combinatorics 0.7
+Polyhedra 0.4

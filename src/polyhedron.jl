@@ -1,6 +1,6 @@
 export ConvexHullLibrary
 
-mutable struct ConvexHullLibrary <: PolyhedraLibrary
+mutable struct ConvexHullLibrary <: Polyhedra.Library
     precision::Symbol
 
     function ConvexHullLibrary(precision::Symbol=:float)
@@ -11,53 +11,53 @@ mutable struct ConvexHullLibrary <: PolyhedraLibrary
     end
 end
 
-Polyhedra.similar_library(l::ConvexHullLibrary, ::FullDim, ::Type{<:AbstractFloat}) = ConvexHullLibrary(:float)
-Polyhedra.similar_library(l::ConvexHullLibrary, ::FullDim, ::Type) = ConvexHullLibrary(:exact)
+Polyhedra.similar_library(l::ConvexHullLibrary, ::Polyhedra.FullDim, ::Type{<:AbstractFloat}) = ConvexHullLibrary(:float)
+Polyhedra.similar_library(l::ConvexHullLibrary, ::Polyhedra.FullDim, ::Type) = ConvexHullLibrary(:exact)
 
-mutable struct ConvexHullPolyhedron{N, T} <: Polyhedron{N, T}
-    ine::Nullable{HRepresentation{N, T}}
-    inel::Nullable{LiftedHRepresentation{N, T}}
-    ext::Nullable{VRepresentation{N, T}}
-    extl::Nullable{LiftedVRepresentation{N, T}}
+mutable struct ConvexHullPolyhedron{T} <: Polyhedron{T}
+    ine::Union{HRepresentation{T}, Nothing}
+    inel::Union{LiftedHRepresentation{T}, Nothing}
+    ext::Union{VRepresentation{T}, Nothing}
+    extl::Union{LiftedVRepresentation{T}, Nothing}
     noredundantinequality::Bool
     noredundantgenerator::Bool
 
-    function ConvexHullPolyhedron{N, T}(ine, ext, nri::Bool, nrg::Bool) where {N, T}
-        new(ine, Nullable{LiftedHRepresentation{N, T}}(), ext, Nullable{LiftedVRepresentation{N, T}}(), nri, nrg)
+    function ConvexHullPolyhedron{T}(ine, ext, nri::Bool, nrg::Bool) where {T}
+        new(ine, nothing, ext, nothing, nri, nrg)
     end
-    function ConvexHullPolyhedron{N, T}(ine::HRepresentation{N, T}) where {N, T}
-        new(ine, Nullable{LiftedHRepresentation{N, T}}(), Nullable{VRepresentation{N, T}}(), Nullable{LiftedVRepresentation{N, T}}(), false, false)
+    function ConvexHullPolyhedron{T}(ine::HRepresentation{T}) where {T}
+        new(ine, nothing, nothing, nothing, false, false)
     end
-    function ConvexHullPolyhedron{N, T}(ext::VRepresentation{N, T}) where {N, T}
-        new(Nullable{HRepresentation{N, T}}(), Nullable{LiftedHRepresentation{N, T}}(), ext, Nullable{LiftedVRepresentation{N, T}}(), false, false)
+    function ConvexHullPolyhedron{T}(ext::VRepresentation{T}) where {T}
+        new(nothing, nothing, ext, nothing, false, false)
     end
 end
 
-Polyhedra.library(p::ConvexHullPolyhedron{N, <:AbstractFloat}) where N = ConvexHullLibrary(:float)
+Polyhedra.library(p::ConvexHullPolyhedron{<:AbstractFloat}) = ConvexHullLibrary(:float)
 Polyhedra.library(p::ConvexHullPolyhedron) = ConvexHullLibrary(:exact)
-Polyhedra.similar_type(::Type{<:ConvexHullPolyhedron}, ::FullDim{N}, ::Type{T}) where {N, T} = ConvexHullPolyhedron{N, T}
+Polyhedra.similar_type(::Type{<:ConvexHullPolyhedron}, ::Polyhedra.FullDim, ::Type{T}) where {T} = ConvexHullPolyhedron{T}
 
 function Polyhedra.arraytype(p::ConvexHullPolyhedron)
-    if isnull(p.ine) && !isnull(p.inel)
-        p.ine = get(p.inel)
+    if isnothing(p.ine) && !isnothing(p.inel)
+        p.ine = p.inel
     end
-    if isnull(p.ext) && !isnull(p.extl)
-        p.ext = get(p.extl)
+    if isnothing(p.ext) && !isnothing(p.extl)
+        p.ext = p.extl
     end
-    if isnull(p.ine)
-        Polyhedra.arraytype(get(p.ext))
-    elseif isnull(p.ext)
-        Polyhedra.arraytype(get(p.ine))
+    if isnothing(p.ine)
+        Polyhedra.arraytype(p.ext)
+    elseif isnothing(p.ext)
+        Polyhedra.arraytype(p.ine)
     else
-        @assert Polyhedra.arraytype(get(p.ine)) == Polyhedra.arraytype(get(p.ext))
-        Polyhedra.arraytype(get(p.ine))
+        @assert Polyhedra.arraytype(p.ine) == Polyhedra.arraytype(p.ext)
+        Polyhedra.arraytype(p.ine)
     end
 end
 
 # Helpers
 function getine(p::ConvexHullPolyhedron)
-    if isnull(p.ine)
-        if !isnull(p.inel)
+    if isnothing(p.ine)
+        if !isnothing(p.inel)
             p.ine = p.inel
         else
             p.ine = double_description(getextl(p))
@@ -65,17 +65,17 @@ function getine(p::ConvexHullPolyhedron)
             p.noredundantinequality = true
         end
     end
-    get(p.ine)
+    p.ine
 end
 function getinel(p::ConvexHullPolyhedron)
-    if isnull(p.inel)
+    if isnothing(p.inel)
         p.inel = LiftedHRepresentation(getine(p))
     end
-    get(p.inel)
+    p.inel
 end
 function getext(p::ConvexHullPolyhedron)
-    if isnull(p.ext)
-        if !isnull(p.extl)
+    if isnothing(p.ext)
+        if !isnothing(p.extl)
             p.ext = p.extl
         else
             p.ext = double_description(getinel(p))
@@ -83,13 +83,13 @@ function getext(p::ConvexHullPolyhedron)
             p.noredundantgenerator = true
         end
     end
-    get(p.ext)
+    p.ext
 end
 function getextl(p::ConvexHullPolyhedron)
-    if isnull(p.extl)
+    if isnothing(p.extl)
         p.extl = LiftedVRepresentation(getext(p))
     end
-    get(p.extl)
+    p.extl
 end
 
 function clearfield!(p::ConvexHullPolyhedron)
@@ -119,23 +119,23 @@ ConvexHullPolyhedron{N, T}(it::Polyhedra.VIt{N}...) where {N, T} = ConvexHullPol
 
 function Base.copy(p::ConvexHullPolyhedron{N, T}) where {N, T}
     ine = nothing
-    if !isnull(p.ine)
+    if !isnothing(p.ine)
         ine = copy(get(p.ine))
     end
     ext = nothing
-    if !isnull(p.ext)
+    if !isnothing(p.ext)
         ext = copy(get(p.ext))
     end
     ConvexHullPolyhedron{N, T}(ine, ext, p.noredundantinequality, p.noredundantgenerator)
 end
 function Polyhedra.hrepiscomputed(p::ConvexHullPolyhedron)
-    !isnull(p.ine)
+    !isnothing(p.ine)
 end
 function Polyhedra.hrep(p::ConvexHullPolyhedron)
     getine(p)
 end
 function Polyhedra.vrepiscomputed(p::ConvexHullPolyhedron)
-    !isnull(p.ext)
+    !isnothing(p.ext)
 end
 function Polyhedra.vrep(p::ConvexHullPolyhedron)
     getext(p)
