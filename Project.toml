@@ -11,8 +11,9 @@ Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
 RowEchelon = "af85af4c-bcd5-5d23-b03a-a909639aa875"
 
 [extras]
-Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+GLPK = "60bf3e95-4087-53dc-ae20-288a0d20c6a6"
 RecipesBase = "3cdcf5f2-1ef4-517c-9805-6587b60abb01"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["Test", "RecipesBase"]
+test = ["Test", "RecipesBase", "GLPK"]
