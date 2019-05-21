@@ -21,16 +21,17 @@ mutable struct ConvexHullPolyhedron{T} <: Polyhedron{T}
     extl::Union{LiftedVRepresentation{T}, Nothing}
     noredundantinequality::Bool
     noredundantgenerator::Bool
+end
 
-    function ConvexHullPolyhedron{T}(ine, ext, nri::Bool, nrg::Bool) where {T}
-        new(ine, nothing, ext, nothing, nri, nrg)
-    end
-    function ConvexHullPolyhedron{T}(ine::HRepresentation{T}) where {T}
-        new(ine, nothing, nothing, nothing, false, false)
-    end
-    function ConvexHullPolyhedron{T}(ext::VRepresentation{T}) where {T}
-        new(nothing, nothing, ext, nothing, false, false)
-    end
+function ConvexHullPolyhedron(ine, ext, nri::Bool, nrg::Bool) where {T}
+    ConvexHullPolyhedron{T}(ine, nothing, ext, nothing, nri, nrg)
+end
+
+function ConvexHullPolyhedron(ine::HRepresentation{T}) where {T}
+    ConvexHullPolyhedron{T}(ine, nothing, nothing, nothing, false, false)
+end
+function ConvexHullPolyhedron(ext::VRepresentation{T}) where {T}
+    ConvexHullPolyhedron{T}(nothing, nothing, ext, nothing, false, false)
 end
 
 Polyhedra.library(p::ConvexHullPolyhedron{<:AbstractFloat}) = ConvexHullLibrary(:float)
