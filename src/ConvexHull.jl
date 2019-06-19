@@ -16,4 +16,8 @@ include("jump_interface.jl")
 include("readers_writers.jl")
 include("polyhedron.jl")
 
+@static if VERSION < v"1.1"
+    @eval isnothing(x) = x === nothing
+end
+
 end
