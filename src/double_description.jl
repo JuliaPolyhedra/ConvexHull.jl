@@ -14,7 +14,7 @@ function double_description(ine::LiftedHRepresentation{T}) where {T}
     end
     # FIXME add support for linearity
     dd = double_description(ine.A)
-    R = Matrix{T}(length(dd.R), fulldim(ine)+1)
+    R = Matrix{T}(undef, length(dd.R), fulldim(ine)+1)
     for (i,r) in enumerate(dd.R)
         R[i,:] = r.v
     end
@@ -27,7 +27,7 @@ function double_description(ext::LiftedVRepresentation{T}) where {T}
     end
     # FIXME add support for linearity
     dd = double_description(ext.R)
-    A = Matrix{T}(length(dd.R), fulldim(ext)+1)
+    A = Matrix{T}(undef, length(dd.R), fulldim(ext)+1)
     for (i,r) in enumerate(dd.R)
         A[i,:] = r.v
     end
