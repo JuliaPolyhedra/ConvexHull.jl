@@ -1,3 +1,5 @@
+using LinearAlgebra
+
 mutable struct DoubleDescription{T<:Real}
     A::Matrix{T}
     R::Vector
@@ -6,30 +8,30 @@ mutable struct DoubleDescription{T<:Real}
     num_rays::Int
 end
 
-function double_description(ine::LiftedHRepresentation{N,T}) where {N,T}
+function double_description(ine::LiftedHRepresentation{T}) where {T}
     if !isempty(ine.linset)
         error("Linearity currently unsupported by ConvexHull.")
     end
     # FIXME add support for linearity
     dd = double_description(ine.A)
-    R = Matrix{T}(length(dd.R), N+1)
+    R = Matrix{T}(undef, length(dd.R), fulldim(ine)+1)
     for (i,r) in enumerate(dd.R)
         R[i,:] = r.v
     end
-    LiftedVRepresentation{N,T}(R)
+    return LiftedVRepresentation{T}(R)
 end
 
-function double_description(ext::LiftedVRepresentation{N,T}) where {N,T}
+function double_description(ext::LiftedVRepresentation{T}) where {T}
     if !isempty(ext.linset)
         error("Linearity currently unsupported by ConvexHull.")
     end
     # FIXME add support for linearity
     dd = double_description(ext.R)
-    A = Matrix{T}(length(dd.R), N+1)
+    A = Matrix{T}(undef, length(dd.R), fulldim(ext)+1)
     for (i,r) in enumerate(dd.R)
         A[i,:] = r.v
     end
-    LiftedHRepresentation{N,T}(A)
+    return LiftedHRepresentation(A)
 end
 
 mutable struct CountedVector{T<:Real}
@@ -50,7 +52,7 @@ Base.vec(c::CountedVector) = c.v
 
 function initial_description(A::Matrix{T}) where T<:Real
     m,n = size(A)
-    B = rref(A')
+    B = rref(Matrix(A'))
     # find pivots
     r = 1
     K = Set{Int}()
@@ -66,7 +68,7 @@ function initial_description(A::Matrix{T}) where T<:Real
     cK = sort(collect(K))
     Ak = A[cK,:]
     if eltype(Ak) <: AbstractFloat
-        R = Ak \ eye(n,n)
+        R = Ak \ Matrix(LinearAlgebra.I, n, n)
     else
         # Ak \ eye(n,n) creates BigFloat from Rational{BigInt} while inv keeps Rational{BigInt}
         R = inv(Ak)

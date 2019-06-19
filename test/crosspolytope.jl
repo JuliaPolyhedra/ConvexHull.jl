@@ -7,7 +7,7 @@ for N in 2:9
         for k in 0:N
             for S in combinations(1:N, k)
                 Sᶜ = setdiff(1:N, S)
-                @constraint(m, sum{x[i], i in S} - sum{x[i], i in Sᶜ} ≤ 1)
+                @constraint(m, sum(x[i] for i in S) - sum(x[i] for i in Sᶜ) ≤ 1)
             end
         end
 
