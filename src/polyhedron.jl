@@ -1,103 +1,64 @@
-export ConvexHullLibrary
-
-mutable struct ConvexHullLibrary <: Polyhedra.Library
+mutable struct Library <: Polyhedra.Library
     precision::Symbol
+    solver::Polyhedra.SolverOrNot
 
-    function ConvexHullLibrary(precision::Symbol=:float)
+    function Library(precision::Symbol=:float, solver=nothing)
         if !(precision in [:float, :exact])
             error("Invalid precision, it should be :float or :exact")
         end
-        new(precision)
+        new(precision, solver)
     end
 end
 
-Polyhedra.similar_library(l::ConvexHullLibrary, ::Polyhedra.FullDim, ::Type{<:AbstractFloat}) = ConvexHullLibrary(:float)
-Polyhedra.similar_library(l::ConvexHullLibrary, ::Polyhedra.FullDim, ::Type) = ConvexHullLibrary(:exact)
+Polyhedra.similar_library(l::Library, ::Polyhedra.FullDim, ::Type{<:AbstractFloat}) = Library(:float)
+Polyhedra.similar_library(l::Library, ::Polyhedra.FullDim, ::Type) = Library(:exact)
 
-mutable struct ConvexHullPolyhedron{T} <: Polyhedron{T}
-    ine::Union{HRepresentation{T}, Nothing}
-    inel::Union{LiftedHRepresentation{T}, Nothing}
-    ext::Union{VRepresentation{T}, Nothing}
-    extl::Union{LiftedVRepresentation{T}, Nothing}
+const HRepT{T} = LiftedHRepresentation{T, Matrix{T}}
+const VRepT{T} = LiftedVRepresentation{T, Matrix{T}}
+
+mutable struct Polyhedron{T} <: Polyhedra.Polyhedron{T}
+    hrep::Union{HRepT{T}, Nothing}
+    vrep::Union{VRepT{T}, Nothing}
     noredundantinequality::Bool
     noredundantgenerator::Bool
+    solver::Polyhedra.SolverOrNot
 end
 
-function ConvexHullPolyhedron(ine, ext, nri::Bool, nrg::Bool) where {T}
-    ConvexHullPolyhedron{T}(ine, nothing, ext, nothing, nri, nrg)
+function Polyhedron{T}(hrep::HRepresentation, solver::Polyhedra.SolverOrNot) where {T}
+    Polyhedron{T}(convert(HRepT{T}, hrep), nothing, false, false, solver)
+end
+function Polyhedron{T}(vrep::VRepresentation, solver::Polyhedra.SolverOrNot) where {T}
+    Polyhedron{T}(nothing, convert(VRepT{T}, vrep), false, false, solver)
+end
+#function Polyhedron{T}(rep::Representation, solver::Polyhedra.SolverOrNot) where {T}
+#    return Polyhedron{T}(Polyhedra.change_coefficient_type(rep, T), solver)
+#end
+
+Polyhedra.FullDim(p::Polyhedron) = Polyhedra.FullDim_rep(p.hrep, p.vrep)
+Polyhedra.library(p::Polyhedron{<:AbstractFloat}) = Library(:float, p.solver)
+Polyhedra.library(p::Polyhedron) = Library(:exact, p.solver)
+Polyhedra.default_solver(p::Polyhedron; T = nothing) = p.solver
+Polyhedra.supportssolver(::Type{<:Polyhedron}) = true
+
+function Polyhedra.hvectortype(::Type{Polyhedron{T}}) where {T}
+    return Polyhedra.hvectortype(HRepT{T})
+end
+function Polyhedra.vvectortype(::Type{Polyhedron{T}}) where {T}
+    return Polyhedra.vvectortype(VRepT{T})
 end
 
-function ConvexHullPolyhedron(ine::HRepresentation{T}) where {T}
-    ConvexHullPolyhedron{T}(ine, nothing, nothing, nothing, false, false)
+Polyhedra.similar_type(::Type{<:Polyhedron}, ::Polyhedra.FullDim, ::Type{T}) where {T} = Polyhedron{T}
+
+function Polyhedron{T}(d::Polyhedra.FullDim, it::Polyhedra.HIt...; solver=nothing) where {T}
+    return Polyhedron{T}(HRepT{T}(d, it...), solver)
 end
-function ConvexHullPolyhedron(ext::VRepresentation{T}) where {T}
-    ConvexHullPolyhedron{T}(nothing, nothing, ext, nothing, false, false)
+function Polyhedron{T}(d::Polyhedra.FullDim, it::Polyhedra.VIt...; solver=nothing) where {T}
+    return Polyhedron{T}(VRepT{T}(d, it...), solver)
 end
 
-Polyhedra.library(p::ConvexHullPolyhedron{<:AbstractFloat}) = ConvexHullLibrary(:float)
-Polyhedra.library(p::ConvexHullPolyhedron) = ConvexHullLibrary(:exact)
-Polyhedra.similar_type(::Type{<:ConvexHullPolyhedron}, ::Polyhedra.FullDim, ::Type{T}) where {T} = ConvexHullPolyhedron{T}
-
-function Polyhedra.vectortype(p::ConvexHullPolyhedron)
-    if isnothing(p.ine) && !isnothing(p.inel)
-        p.ine = p.inel
-    end
-    if isnothing(p.ext) && !isnothing(p.extl)
-        p.ext = p.extl
-    end
-    if isnothing(p.ine)
-        Polyhedra.vectortype(p.ext)
-    elseif isnothing(p.ext)
-        Polyhedra.vectortype(p.ine)
-    else
-        @assert Polyhedra.vectortype(p.ine) == Polyhedra.vectortype(p.ext)
-        Polyhedra.vectortype(p.ine)
-    end
-end
-
-# Helpers
-function getine(p::ConvexHullPolyhedron)
-    if isnothing(p.ine)
-        if !isnothing(p.inel)
-            p.ine = p.inel
-        else
-            p.ine = double_description(getextl(p))
-            p.inel = nothing
-            p.noredundantinequality = true
-        end
-    end
-    p.ine
-end
-function getinel(p::ConvexHullPolyhedron)
-    if isnothing(p.inel)
-        p.inel = LiftedHRepresentation(getine(p))
-    end
-    p.inel
-end
-function getext(p::ConvexHullPolyhedron)
-    if isnothing(p.ext)
-        if !isnothing(p.extl)
-            p.ext = p.extl
-        else
-            p.ext = double_description(getinel(p))
-            p.extl = nothing
-            p.noredundantgenerator = true
-        end
-    end
-    p.ext
-end
-function getextl(p::ConvexHullPolyhedron)
-    if isnothing(p.extl)
-        p.extl = LiftedVRepresentation(getext(p))
-    end
-    p.extl
-end
-
-function clearfield!(p::ConvexHullPolyhedron)
-    p.ine = nothing
-    p.inel = nothing
-    p.ext = nothing
-    p.extl = nothing
+function clearfield!(p::Polyhedron)
+    p.hrep = nothing
+    p.vrep = nothing
     p.noredundantinequality = false
     p.noredundantgenerator = false
 end
@@ -107,54 +68,69 @@ function polytypeforprecision(precision::Symbol)
   if !(precision in (:float, :exact))
     error("precision should be :float or :exact, you gave $precision")
   end
-  precision == :float ? Float64 : Rational{BigInt}
+  return precision == :float ? Float64 : Rational{BigInt}
 end
 
-function Polyhedra.polyhedron(rep::Representation, lib::ConvexHullLibrary)
+function Polyhedra.polyhedron(rep::Representation, lib::Library)
     T = polytypeforprecision(lib.precision)
-    ConvexHullPolyhedron{T}(rep)
+    return Polyhedron{T}(rep, lib.solver)
 end
 
-ConvexHullPolyhedron{T}(it::Polyhedra.HIt...) where {T} = ConvexHullPolyhedron{T}(LiftedHRepresentation{T}(it...))
-ConvexHullPolyhedron{T}(it::Polyhedra.VIt...) where {T} = ConvexHullPolyhedron{T}(LiftedVRepresentation{T}(it...))
-
-function Base.copy(p::ConvexHullPolyhedron{T}) where {T}
-    ine = nothing
-    if !isnothing(p.ine)
-        ine = copy(get(p.ine))
+function Base.copy(p::Polyhedron{T}) where {T}
+    hrep = nothing
+    if !isnothing(p.hrep)
+        hrep = copy(p.hrep)
     end
-    ext = nothing
-    if !isnothing(p.ext)
-        ext = copy(get(p.ext))
+    vrep = nothing
+    if !isnothing(p.vrep)
+        vrep = copy(p.vrep)
     end
-    ConvexHullPolyhedron{T}(ine, ext, p.noredundantinequality, p.noredundantgenerator)
-end
-function Polyhedra.hrepiscomputed(p::ConvexHullPolyhedron)
-    !isnothing(p.ine)
-end
-function Polyhedra.hrep(p::ConvexHullPolyhedron)
-    getine(p)
-end
-function Polyhedra.vrepiscomputed(p::ConvexHullPolyhedron)
-    !isnothing(p.ext)
-end
-function Polyhedra.vrep(p::ConvexHullPolyhedron)
-    getext(p)
+    return Polyhedron{T}(hrep, vrep, p.noredundantinequality,
+                         p.noredundantgenerator, p.solver)
 end
 
-function Polyhedra.sethrep!(p::ConvexHullPolyhedron, h::HRepresentation)
-    p.ine = h
-    p.inel = nothing
+function Polyhedra.hrepiscomputed(p::Polyhedron)
+    !isnothing(p.hrep)
 end
-function Polyhedra.setvrep!(p::ConvexHullPolyhedron, v::VRepresentation)
-    p.ext = v
-    p.extl = nothing
+function Polyhedra.computehrep!(p::Polyhedron)
+    # vrep(p) could trigger an infinite loop if both vrep and hrep are null
+    p.hrep = double_description(p.vrep)
+    p.noredundantinequality = true
+    return
 end
-function resethrep!(p::ConvexHullPolyhedron, h::HRepresentation)
+function Polyhedra.hrep(p::Polyhedron)
+    if !Polyhedra.hrepiscomputed(p)
+        Polyhedra.computehrep!(p)
+    end
+    return p.hrep
+end
+function Polyhedra.vrepiscomputed(p::Polyhedron)
+    !isnothing(p.vrep)
+end
+function Polyhedra.computevrep!(p::Polyhedron)
+    # hrep(p) could trigger an infinite loop if both vrep and hrep are null
+    p.vrep = double_description(p.hrep)
+    p.noredundantgenerator = true
+    return
+end
+function Polyhedra.vrep(p::Polyhedron)
+    if !Polyhedra.vrepiscomputed(p)
+        Polyhedra.computevrep!(p)
+    end
+    return p.vrep
+end
+
+function Polyhedra.sethrep!(p::Polyhedron{T}, h::HRepresentation) where T
+    p.hrep = convert(HRepT{T}, h)
+end
+function Polyhedra.setvrep!(p::Polyhedron{T}, v::VRepresentation) where T
+    p.vrep = convert(VRepT{T}, v)
+end
+function Polyhedra.resethrep!(p::Polyhedron, h::HRepresentation)
     clearfield!(p)
-    p.ine = h
+    Polyhedra.sethrep!(p, h)
 end
-function resetvrep!(p::ConvexHullPolyhedron, v::VRepresentation)
+function Polyhedra.resetvrep!(p::Polyhedron, v::VRepresentation)
     clearfield!(p)
-    p.ext = v
+    Polyhedra.setvrep!(p, v)
 end
