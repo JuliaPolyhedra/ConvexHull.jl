@@ -64,7 +64,7 @@ function initial_description(A::Matrix{T}) where {T<:Real}
         end
         r > n && break
     end
-    cK = sort(collect(K))
+    cK = sort!(collect(K))
     Ak = A[cK,:]
     if eltype(Ak) <: AbstractFloat
         R = Ak \ Matrix(LinearAlgebra.I, n, n)
