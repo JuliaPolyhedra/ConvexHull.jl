@@ -1,8 +1,23 @@
 using LinearAlgebra
 
-mutable struct DoubleDescription{T<:Real,C}
+struct CountedVector{T<:Real}
+    v::Vector{T}
+    Av::Vector{T}
+    id::Int
+
+    function CountedVector{T}(v::Vector{T}, A, id) where {T}
+        canonicalize!(v)
+        new{T}(v, A*v, id)
+    end
+end
+
+CountedVector(v::Vector{T}, A, id) where {T} = CountedVector{T}(v, A, id)
+
+Base.vec(c::CountedVector) = c.v
+
+mutable struct DoubleDescription{T<:Real}
     A::Matrix{T}
-    R::Vector{C}
+    R::Vector{CountedVector{T}}
     K::Set{Int}
     adj::Dict{Tuple{Int,Int},Bool}
     num_rays::Int
@@ -33,21 +48,6 @@ function double_description(ext::LiftedVRepresentation{T}) where {T}
     end
     return LiftedHRepresentation(A)
 end
-
-struct CountedVector{T<:Real}
-    v::Vector{T}
-    Av::Vector{T}
-    id::Int
-
-    function CountedVector{T}(v::Vector{T}, A, id) where {T}
-        canonicalize!(v)
-        new{T}(v, A*v, id)
-    end
-end
-
-CountedVector(v::Vector{T}, A, id) where {T} = CountedVector{T}(v, A, id)
-
-Base.vec(c::CountedVector) = c.v
 
 function initial_description(A::Matrix{T}) where {T<:Real}
     m,n = size(A)
