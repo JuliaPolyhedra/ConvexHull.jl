@@ -34,19 +34,18 @@ function double_description(ext::LiftedVRepresentation{T}) where {T}
     return LiftedHRepresentation(A)
 end
 
-mutable struct CountedVector{T<:Real,C}
+struct CountedVector{T<:Real}
     v::Vector{T}
     Av::Vector{T}
-    dd::DoubleDescription{T,C}
     id::Int
 
-    function CountedVector{T}(v::Vector{T}, dd::DoubleDescription{T,C}) where {T,C}
-        dd.num_rays += 1
+    function CountedVector{T}(v::Vector{T}, A, id) where {T}
         canonicalize!(v)
-        new{T,C}(v, dd.A*v, dd, dd.num_rays)
+        new{T}(v, A*v, id)
     end
 end
-CountedVector(v::Vector{T},dd::DoubleDescription{T,C}) where {T,C} = CountedVector{T}(v,dd)
+
+CountedVector(v::Vector{T}, A, id) where {T} = CountedVector{T}(v, A, id)
 
 Base.vec(c::CountedVector) = c.v
 
@@ -73,9 +72,8 @@ function initial_description(A::Matrix{T}) where {T<:Real}
         # Ak \ eye(n,n) creates BigFloat from Rational{BigInt} while inv keeps Rational{BigInt}
         R = inv(Ak)
     end
-    dd = DoubleDescription(A,CountedVector{T}[],K,Dict{Tuple{Int,Int},Bool}(),n)
-    Rk = [CountedVector{T}(R[:,i],dd) for i in 1:n]
-    dd.R = Rk
+    Rk = [CountedVector{T}(R[:,i],A,i) for i in 1:n]
+    dd = DoubleDescription(A,Rk,K,Dict{Tuple{Int,Int},Bool}(),n)
     for i in 1:n
         # Ar = Rk[i].Av[cK]
         for j in (i+1):n
@@ -87,7 +85,7 @@ function initial_description(A::Matrix{T}) where {T<:Real}
     return dd
 end
 
-function double_description(A::Matrix{T}) where T<:Real
+function double_description(A::Matrix{T}) where {T<:Real}
     A = [zeros(T,1,size(A,2)); A]
     A[1,1] = one(T)
     m, n = size(A)
@@ -111,7 +109,7 @@ function is_approx_included(haystack, needle)
     return false
 end
 
-function canonicalize!(v::Vector{T}) where T<:Real
+function canonicalize!(v::Vector{T}) where {T<:Real}
     n = length(v)
     val = abs(v[1])
     if val < ε
@@ -120,11 +118,11 @@ function canonicalize!(v::Vector{T}) where T<:Real
     for i in 1:n
         v[i] = v[i] / val
     end
-    v
+    return v
 end
 
 # use Lemma 8 from Fukuda (1996) to update the double description
-function update!(dd::DoubleDescription{T}, i) where T<:Real
+function update!(dd::DoubleDescription{T}, i) where {T<:Real}
     m, n = size(dd.A)
     Aᵢ = reshape(dd.A[i,:], (n,))
     Rⁿᵉʷ = CountedVector{T}[]
@@ -132,7 +130,8 @@ function update!(dd::DoubleDescription{T}, i) where T<:Real
     for r in R⁺, s in R⁻
         if isadjacent(dd,r,s)
             w = dot(Aᵢ,vec(r))*vec(s) - dot(Aᵢ,vec(s))*vec(r)
-            v = CountedVector(w,dd)
+            dd.num_rays += 1
+            v = CountedVector(w,dd.A,dd.num_rays)
             if sum(abs.(w)) > n*ε &&
                !is_approx_included(R⁰,   vec(w)) &&
                !is_approx_included(Rⁿᵉʷ, vec(w))
