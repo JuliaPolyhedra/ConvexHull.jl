@@ -1,6 +1,6 @@
 mutable struct Library <: Polyhedra.Library
     precision::Symbol
-    solver::Polyhedra.SolverOrNot
+    solver
 
     function Library(precision::Symbol=:float, solver=nothing)
         if !(precision in [:float, :exact])
@@ -21,16 +21,16 @@ mutable struct Polyhedron{T} <: Polyhedra.Polyhedron{T}
     vrep::Union{VRepT{T}, Nothing}
     noredundantinequality::Bool
     noredundantgenerator::Bool
-    solver::Polyhedra.SolverOrNot
+    solver
 end
 
-function Polyhedron{T}(hrep::HRepresentation, solver::Polyhedra.SolverOrNot) where {T}
+function Polyhedron{T}(hrep::HRepresentation, solver) where {T}
     Polyhedron{T}(convert(HRepT{T}, hrep), nothing, false, false, solver)
 end
-function Polyhedron{T}(vrep::VRepresentation, solver::Polyhedra.SolverOrNot) where {T}
+function Polyhedron{T}(vrep::VRepresentation, solver) where {T}
     Polyhedron{T}(nothing, convert(VRepT{T}, vrep), false, false, solver)
 end
-#function Polyhedron{T}(rep::Representation, solver::Polyhedra.SolverOrNot) where {T}
+#function Polyhedron{T}(rep::Representation, solver) where {T}
 #    return Polyhedron{T}(Polyhedra.change_coefficient_type(rep, T), solver)
 #end
 
