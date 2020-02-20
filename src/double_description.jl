@@ -1,8 +1,8 @@
 using LinearAlgebra
 
-mutable struct DoubleDescription{T<:Real}
+mutable struct DoubleDescription{T<:Real,C}
     A::Matrix{T}
-    R::Vector
+    R::Vector{C}
     K::Set{Int}
     adj::Dict{Tuple{Int,Int},Bool}
     num_rays::Int
@@ -34,23 +34,23 @@ function double_description(ext::LiftedVRepresentation{T}) where {T}
     return LiftedHRepresentation(A)
 end
 
-mutable struct CountedVector{T<:Real}
+mutable struct CountedVector{T<:Real,C}
     v::Vector{T}
     Av::Vector{T}
-    dd::DoubleDescription{T}
+    dd::DoubleDescription{T,C}
     id::Int
 
-    function CountedVector{T}(v::Vector{T}, dd::DoubleDescription{T}) where T
+    function CountedVector{T}(v::Vector{T}, dd::DoubleDescription{T,C}) where {T,C}
         dd.num_rays += 1
         canonicalize!(v)
-        new{T}(v, dd.A*v, dd, dd.num_rays)
+        new{T,C}(v, dd.A*v, dd, dd.num_rays)
     end
 end
-CountedVector(v::Vector{T},dd::DoubleDescription{T}) where {T<:Real} = CountedVector{T}(v,dd)
+CountedVector(v::Vector{T},dd::DoubleDescription{T,C}) where {T,C} = CountedVector{T}(v,dd)
 
 Base.vec(c::CountedVector) = c.v
 
-function initial_description(A::Matrix{T}) where T<:Real
+function initial_description(A::Matrix{T}) where {T<:Real}
     m,n = size(A)
     B = rref(Matrix(A'))
     # find pivots
