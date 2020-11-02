@@ -15,15 +15,15 @@ SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 
 [compat]
-Polyhedra = "0.6"
+Polyhedra = "0.6.8"
 julia = "1"
 
 [extras]
 GLPK = "60bf3e95-4087-53dc-ae20-288a0d20c6a6"
-GeometryTypes = "4d00f742-c7ba-57c2-abde-4428a4b178cb"
+GeometryBasics = "5c1252a2-5f33-56bf-86c9-59e7332b4326"
 Pkg = "44cfe95a-1eb2-52ea-b672-e2afdf69b78f"
 RecipesBase = "3cdcf5f2-1ef4-517c-9805-6587b60abb01"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["GeometryTypes", "Test", "RecipesBase", "GLPK", "Pkg"]
+test = ["GeometryBasics", "Test", "RecipesBase", "GLPK", "Pkg"]
